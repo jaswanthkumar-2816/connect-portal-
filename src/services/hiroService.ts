@@ -26,6 +26,7 @@ import {
 
 // --- Simulate network delay ---
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+const GATEWAY_URL = import.meta.env.VITE_HIERO_GATEWAY_URL || 'http://localhost:2816';
 
 // In-memory + LocalStorage custom opportunity store helper
 function getStoredCustomOpps(): Opportunity[] {
@@ -114,7 +115,7 @@ export async function getOpportunities(companyId?: string): Promise<Opportunity[
   await delay(300);
   let liveBackendOpps: Opportunity[] = [];
   try {
-    const res = await fetch('http://localhost:2816/api/opportunities');
+    const res = await fetch(`${GATEWAY_URL}/api/opportunities`);
     if (res.ok) {
       const data = await res.json();
       if (data.success && data.opportunities) {
@@ -209,7 +210,7 @@ export async function createOpportunity(
     (newOpp as any).logoUrl = logoUrl;
     (newOpp as any).companyName = companyName;
 
-    await fetch('http://localhost:2816/api/opportunities', {
+    await fetch(`${GATEWAY_URL}/api/opportunities`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -263,7 +264,7 @@ export async function getApplications(companyId?: string): Promise<Application[]
 
   let backendApps: Application[] = [];
   try {
-    const res = await fetch('http://localhost:2816/api/opportunities/applications');
+    const res = await fetch(`${GATEWAY_URL}/api/opportunities/applications`);
     if (res.ok) {
       const data = await res.json();
       if (data.success && data.applications) {
