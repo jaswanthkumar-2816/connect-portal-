@@ -14,6 +14,7 @@ interface SkillExtractionProps {
   additionalSkills: SkillData[];
   isAnalyzing?: boolean;
   onComplete?: (core: SkillData[], additional: SkillData[]) => void;
+  onChange?: (core: any, additional: any) => void;
 }
 
 export default function SkillExtraction({ coreSkills, additionalSkills, isAnalyzing = false, onComplete }: SkillExtractionProps) {

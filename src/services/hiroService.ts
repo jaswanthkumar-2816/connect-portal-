@@ -348,6 +348,11 @@ export async function applyToOpportunity(params: {
     matchScore: params.matchScore || Math.floor(Math.random() * 20) + 80, // 80%-99%
     appliedAt: new Date().toISOString(),
     resumeUrl: '/resumes/jaswanth_resume.pdf',
+    matchingSkills: [
+      { name: 'Python', score: 95 },
+      { name: 'React', score: 92 },
+      { name: 'TypeScript', score: 90 },
+    ],
     skillsMatch: {
       matched: opp?.requiredSkills?.map(s => s.name) || ['React', 'TypeScript', 'Node.js'],
       missing: ['Kubernetes'],

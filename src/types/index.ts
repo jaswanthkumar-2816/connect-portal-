@@ -135,6 +135,7 @@ export interface Candidate {
   links?: any;
   hieroAssessments?: HieroAssessment[];
   authorizedSections: string[]; // which sections company can view
+  createdAt?: string;
 }
 
 export interface HieroAssessment {
@@ -163,6 +164,8 @@ export interface Application {
   resumeUrl?: string;
   matchScore: number;
   matchingSkills: { name: string; score: number }[];
+  missingSkills?: { name: string }[];
+  skillsMatch?: { matched: string[]; missing: string[] };
   skillGaps?: { name: string; required: number; candidate: number }[];
   status: ApplicationStatus;
   appliedAt: string;
