@@ -27,6 +27,7 @@ import {
 // --- Simulate network delay ---
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 const GATEWAY_URL = import.meta.env.VITE_HIERO_GATEWAY_URL || 'http://localhost:2816';
+const PYTHON_BACKEND_URL = import.meta.env.VITE_PYTHON_BACKEND_URL || 'http://localhost:5050';
 
 // In-memory + LocalStorage custom opportunity store helper
 function getStoredCustomOpps(): Opportunity[] {
@@ -115,11 +116,21 @@ export async function getOpportunities(companyId?: string): Promise<Opportunity[
   await delay(300);
   let liveBackendOpps: Opportunity[] = [];
   try {
+    const res = await fetch(`${PYTHON_BACKEND_URL}/api/opportunities`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success && data.opportunities) {
+        liveBackendOpps.push(...data.opportunities);
+      }
+    }
+  } catch (e) {}
+
+  try {
     const res = await fetch(`${GATEWAY_URL}/api/opportunities`);
     if (res.ok) {
       const data = await res.json();
       if (data.success && data.opportunities) {
-        liveBackendOpps = data.opportunities;
+        liveBackendOpps.push(...data.opportunities);
       }
     }
   } catch (e) {}
@@ -210,18 +221,37 @@ export async function createOpportunity(
     (newOpp as any).logoUrl = logoUrl;
     (newOpp as any).companyName = companyName;
 
-    await fetch(`${GATEWAY_URL}/api/opportunities`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ...newOpp,
-        companyName: companyName,
-        logoUrl: logoUrl,
-        companyDescription: '',
-        location: newOpp.location
-      })
-    });
-    console.log(`✅ [HIERO Sync] Opportunity for "${companyName}" with logo published to Hiero ecosystem on port 2816`);
+    const payload = {
+      ...newOpp,
+      companyName: companyName,
+      logoUrl: logoUrl,
+      companyDescription: '',
+      location: newOpp.location
+    };
+
+    // 1. Sync to Hiero Gateway API (http://localhost:2816)
+    try {
+      await fetch(`${GATEWAY_URL}/api/opportunities`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      console.log(`✅ [HIERO Sync] Opportunity for "${companyName}" published to Hiero Gateway on port 2816`);
+    } catch (err) {
+      console.warn('⚠️ [HIERO Gateway Sync] Warning:', err);
+    }
+
+    // 2. Sync to Central Python Backend
+    try {
+      await fetch(`${PYTHON_BACKEND_URL}/api/opportunities`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      console.log(`✅ [Python Backend Sync] Opportunity for "${companyName}" published to Python Backend`);
+    } catch (err) {
+      console.warn('⚠️ [Python Backend Sync] Warning:', err);
+    }
   } catch (err) {
     console.warn('⚠️ [HIERO Sync] Network fallback to local storage:', err);
   }
@@ -256,19 +286,48 @@ function saveCustomApp(app: Application) {
   }
 }
 
-// --- Application Operations ---
 export async function getApplications(companyId?: string): Promise<Application[]> {
   await delay(300);
   const opps = await getOpportunities(companyId);
   const companyOppIds = opps.map(o => o.id);
 
   let backendApps: Application[] = [];
+  
+  // 1. Try Python Backend
+  try {
+    const pyRes = await fetch(`${PYTHON_BACKEND_URL}/api/applications`);
+    if (pyRes.ok) {
+      const pyData = await pyRes.json();
+      if (pyData.success && pyData.applications) {
+        backendApps.push(...pyData.applications.map((b: any) => ({
+          id: b.id || `app-${Date.now()}`,
+          opportunityId: b.opportunity_id || b.opportunityId,
+          companyId: companyId || 'c1',
+          companyName: b.company_name || b.companyName,
+          studentId: b.student_id || b.studentId || 'cand-1',
+          studentName: b.student_name || b.studentName || 'Jaswanth Kumar',
+          status: b.status || 'applied',
+          matchScore: b.match_score || b.matchScore || 92,
+          appliedAt: b.applied_at || b.appliedAt || new Date().toISOString(),
+          resumeUrl: b.resume_url || b.resumeUrl || '/resumes/jaswanth_resume.pdf',
+          matchingSkills: [
+            { name: 'Python', score: 95 },
+            { name: 'React', score: 92 },
+            { name: 'TypeScript', score: 90 }
+          ],
+          missingSkills: []
+        })));
+      }
+    }
+  } catch (e) {}
+
+  // 2. Try Node Gateway (port 2816)
   try {
     const res = await fetch(`${GATEWAY_URL}/api/opportunities/applications`);
     if (res.ok) {
       const data = await res.json();
       if (data.success && data.applications) {
-        backendApps = data.applications.map((b: any) => ({
+        backendApps.push(...data.applications.map((b: any) => ({
           id: b.id || `app-${Date.now()}`,
           opportunityId: b.opportunityId,
           companyId: companyId || 'c1',
@@ -285,7 +344,7 @@ export async function getApplications(companyId?: string): Promise<Application[]
             { name: 'TypeScript', score: 90 }
           ],
           missingSkills: []
-        }));
+        })));
       }
     }
   } catch (e) {}

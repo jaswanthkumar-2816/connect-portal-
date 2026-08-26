@@ -34,7 +34,8 @@ const server = http.createServer((req, res) => {
   }
 });
 
-const port = process.env.PORT || 5174;
+const port = process.env.PORT || 2004;
 server.listen(port, '0.0.0.0', () => {
   console.log(`HieroConnect running on http://localhost:${port}`);
 });
+
