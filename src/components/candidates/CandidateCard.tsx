@@ -10,9 +10,10 @@ interface CandidateCardProps {
   matchExplanation?: string;
   onShortlist?: (candidateId: string) => void;
   isShortlisted?: boolean;
+  showSkills?: boolean;
 }
 
-export default function CandidateCard({ candidate, matchScore, matchingSkills, matchExplanation, onShortlist, isShortlisted }: CandidateCardProps) {
+export default function CandidateCard({ candidate, matchScore, matchingSkills, matchExplanation, onShortlist, isShortlisted, showSkills = true }: CandidateCardProps) {
   const highMatch = matchScore >= 85;
 
   return (
@@ -36,7 +37,7 @@ export default function CandidateCard({ candidate, matchScore, matchingSkills, m
               <p className="text-sm text-[var(--color-muted)] font-medium mt-0.5">{candidate.headline}</p>
               <div className="flex items-center gap-3 mt-2 text-xs text-[var(--color-muted)] font-semibold">
                 <span className="flex items-center gap-1"><MapPin size={12} />{candidate.location}</span>
-                {candidate.education[0] && (
+                {candidate.education?.[0] && (
                   <span>{candidate.education[0].institution}</span>
                 )}
               </div>
@@ -65,7 +66,7 @@ export default function CandidateCard({ candidate, matchScore, matchingSkills, m
             </div>
           </div>
 
-          {/* Skills */}
+          {showSkills && matchingSkills.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mt-3">
             {matchingSkills.slice(0, 5).map(skill => (
               <span
@@ -83,6 +84,7 @@ export default function CandidateCard({ candidate, matchScore, matchingSkills, m
               </span>
             ))}
           </div>
+          )}
 
           {/* Match Explanation */}
           {matchExplanation && (

@@ -28,6 +28,26 @@ import {
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 const GATEWAY_URL = import.meta.env.VITE_HIERO_GATEWAY_URL || 'http://localhost:2816';
 const PYTHON_BACKEND_URL = import.meta.env.VITE_PYTHON_BACKEND_URL || 'http://localhost:5050';
+const BRIDGE_URL = import.meta.env.VITE_BRIDGE_URL || 'http://localhost:2410';
+
+async function fetchWithTimeout(url: string, ms = 2500, init?: RequestInit): Promise<Response | null> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function skillNames(skills?: { name: string }[] | string[]): string[] {
+  if (!skills) return [];
+  return skills
+    .map(s => (typeof s === 'string' ? s : s?.name))
+    .filter((n): n is string => Boolean(n));
+}
 
 // In-memory + LocalStorage custom opportunity store helper
 function getStoredCustomOpps(): Opportunity[] {
@@ -116,8 +136,8 @@ export async function getOpportunities(companyId?: string): Promise<Opportunity[
   await delay(300);
   let liveBackendOpps: Opportunity[] = [];
   try {
-    const res = await fetch(`${PYTHON_BACKEND_URL}/api/opportunities`);
-    if (res.ok) {
+    const res = await fetchWithTimeout(`${PYTHON_BACKEND_URL}/api/opportunities`);
+    if (res?.ok) {
       const data = await res.json();
       if (data.success && data.opportunities) {
         liveBackendOpps.push(...data.opportunities);
@@ -126,8 +146,8 @@ export async function getOpportunities(companyId?: string): Promise<Opportunity[
   } catch (e) {}
 
   try {
-    const res = await fetch(`${GATEWAY_URL}/api/opportunities`);
-    if (res.ok) {
+    const res = await fetchWithTimeout(`${GATEWAY_URL}/api/opportunities`);
+    if (res?.ok) {
       const data = await res.json();
       if (data.success && data.opportunities) {
         liveBackendOpps.push(...data.opportunities);
@@ -223,34 +243,51 @@ export async function createOpportunity(
 
     const payload = {
       ...newOpp,
-      companyName: companyName,
-      logoUrl: logoUrl,
+      companyName,
+      company: companyName,
+      logoUrl,
       companyDescription: '',
-      location: newOpp.location
+      location: newOpp.location,
+      ctc: newOpp.salary,
+      salary: newOpp.salary,
     };
 
-    // 1. Sync to Hiero Gateway API (http://localhost:2816)
-    try {
-      await fetch(`${GATEWAY_URL}/api/opportunities`, {
+    const postJson = (url: string, body: unknown) =>
+      fetchWithTimeout(url, 8000, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(body),
       });
-      console.log(`✅ [HIERO Sync] Opportunity for "${companyName}" published to Hiero Gateway on port 2816`);
-    } catch (err) {
-      console.warn('⚠️ [HIERO Gateway Sync] Warning:', err);
+
+    const bridgePayload = {
+      ...payload,
+      requiredSkills: skillNames(newOpp.requiredSkills),
+      preferredSkills: skillNames(newOpp.preferredSkills),
+    };
+
+    // Fan-out so the same job appears on HIERO (2816) and Bridge (2410).
+    const [hieroRes, bridgeRes, hubRes] = await Promise.all([
+      postJson(`${GATEWAY_URL}/api/opportunities`, payload),
+      postJson(`${BRIDGE_URL}/api/connect/opportunities/publish`, bridgePayload),
+      postJson(`${PYTHON_BACKEND_URL}/api/opportunities`, payload),
+    ]);
+
+    if (hieroRes?.ok) {
+      console.log(`✅ Published "${newOpp.title}" to HIERO Gateway (2816)`);
+    } else {
+      console.warn('⚠️ HIERO Gateway (2816) did not accept the opportunity');
     }
 
-    // 2. Sync to Central Python Backend
-    try {
-      await fetch(`${PYTHON_BACKEND_URL}/api/opportunities`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      console.log(`✅ [Python Backend Sync] Opportunity for "${companyName}" published to Python Backend`);
-    } catch (err) {
-      console.warn('⚠️ [Python Backend Sync] Warning:', err);
+    if (bridgeRes?.ok) {
+      console.log(`✅ Published "${newOpp.title}" to HIERO Bridge (2410)`);
+    } else {
+      console.warn('⚠️ HIERO Bridge (2410) did not accept the opportunity');
+    }
+
+    if (hubRes?.ok) {
+      console.log(`✅ Stored "${newOpp.title}" on Python hub (5050)`);
+    } else {
+      console.warn('⚠️ Python hub (5050) did not accept the opportunity');
     }
   } catch (err) {
     console.warn('⚠️ [HIERO Sync] Network fallback to local storage:', err);
@@ -260,10 +297,17 @@ export async function createOpportunity(
 }
 
 export async function getOpportunityById(id: string): Promise<Opportunity | null> {
-  await delay(200);
+  await delay(150);
   const custom = getStoredCustomOpps().find(o => o.id === id);
   if (custom) return custom;
-  return demoOpportunities.find(o => o.id === id) ?? null;
+  const demo = demoOpportunities.find(o => o.id === id);
+  if (demo) return demo;
+  try {
+    const all = await getOpportunities();
+    return all.find(o => o.id === id) || all.find(o => o.title === id) || null;
+  } catch {
+    return null;
+  }
 }
 
 // Helper to get custom applications stored in localStorage
@@ -286,6 +330,103 @@ function saveCustomApp(app: Application) {
   }
 }
 
+function upsertCustomApp(app: Application): Application {
+  const list = getStoredCustomApps();
+  const idx = list.findIndex(a =>
+    a.id === app.id ||
+    (a.studentId && app.studentId && a.studentId === app.studentId && a.opportunityId === app.opportunityId)
+  );
+  if (idx >= 0) {
+    list[idx] = { ...list[idx], ...app, id: list[idx].id };
+    try {
+      localStorage.setItem('hc_custom_applications', JSON.stringify(list));
+    } catch { /* ignore */ }
+    return list[idx];
+  }
+  saveCustomApp(app);
+  return app;
+}
+
+export function isCampusApplicant(entry: {
+  source?: string;
+  campusName?: string;
+  studentId?: string;
+  id?: string;
+  email?: string;
+}): boolean {
+  const id = String(entry.studentId || entry.id || '');
+  const email = String(entry.email || '').toLowerCase();
+  return (
+    entry.source === 'bridge' ||
+    Boolean(entry.campusName) ||
+    id.startsWith('STU-') ||
+    email.includes('@college.edu')
+  );
+}
+
+function bridgeStatusOf(status: Application['status']): string {
+  if (status === 'selected') return 'Selected';
+  if (status === 'interview') return 'Interview';
+  if (status === 'rejected') return 'Rejected';
+  if (status === 'shortlisted') return 'Shortlisted';
+  return 'Under Review';
+}
+
+export async function notifyCampusAdmin(payload: Record<string, unknown>): Promise<boolean> {
+  const bridgeRes = await fetchWithTimeout(`${BRIDGE_URL}/api/connect/recruiter/decisions`, 6000, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (payload.applicationId) {
+    await fetchWithTimeout(`${BRIDGE_URL}/api/connect/applications/${payload.applicationId}/status`, 4000, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        status: payload.bridgeStatus || bridgeStatusOf((payload.status as Application['status']) || 'shortlisted'),
+        notes: payload.notes,
+      }),
+    });
+  }
+  await fetchWithTimeout(`${GATEWAY_URL}/api/opportunities/applications/status`, 4000, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return Boolean(bridgeRes?.ok);
+}
+
+function mapIncomingApp(b: any, companyId?: string): Application {
+  const skillsRaw = b.matchingSkills || b.skills || [];
+  const matchingSkills = (Array.isArray(skillsRaw) ? skillsRaw : []).map((s: any) => (
+    typeof s === 'string' ? { name: s, score: b.matchScore || 85 } : { name: s.name, score: s.score || s.competency || 85 }
+  )).filter((s: any) => s.name);
+
+  return {
+    id: b.id || `app-${Date.now()}`,
+    opportunityId: b.opportunity_id || b.opportunityId || b.oppId || '',
+    companyId: b.companyId || companyId || 'c1',
+    companyName: b.company_name || b.companyName,
+    studentId: b.student_id || b.studentId || 'cand-1',
+    studentName: b.student_name || b.studentName || b.student?.name,
+    email: b.email || b.student?.email,
+    phone: b.phone || b.student?.phone,
+    cgpa: b.cgpa || b.student?.cgpa,
+    department: b.department || b.student?.department,
+    campusName: b.campusName || b.campus_name || b.college?.name || b.student?.campusName,
+    campusLocation: b.campusLocation || b.college?.location || b.student?.campusLocation,
+    jobTitle: b.jobTitle || b.opportunity?.title,
+    status: b.status === 'Sent to Recruiter' ? 'shortlisted' : (b.status || 'applied'),
+    matchScore: b.match_score || b.matchScore || 88,
+    appliedAt: b.applied_at || b.appliedAt || new Date().toISOString(),
+    resumeUrl: b.resume_url || b.resumeUrl || b.student?.resumeUrl,
+    matchingSkills: matchingSkills.length ? matchingSkills : [{ name: 'Python', score: 90 }],
+    notes: b.notes,
+    source: b.source || 'bridge',
+    projects: b.projects || b.student?.projects,
+  };
+}
+
 export async function getApplications(companyId?: string): Promise<Application[]> {
   await delay(300);
   const opps = await getOpportunities(companyId);
@@ -293,58 +434,35 @@ export async function getApplications(companyId?: string): Promise<Application[]
 
   let backendApps: Application[] = [];
   
+  // 0. Pull campus applications from HIERO Bridge (2410)
+  try {
+    const br = await fetchWithTimeout(`${BRIDGE_URL}/api/connect/applications`, 4000);
+    if (br?.ok) {
+      const brData = await br.json();
+      if (brData.success && Array.isArray(brData.applications)) {
+        backendApps.push(...brData.applications.map((b: any) => mapIncomingApp(b, companyId)));
+      }
+    }
+  } catch (e) {}
+
   // 1. Try Python Backend
   try {
-    const pyRes = await fetch(`${PYTHON_BACKEND_URL}/api/applications`);
-    if (pyRes.ok) {
+    const pyRes = await fetchWithTimeout(`${PYTHON_BACKEND_URL}/api/applications`);
+    if (pyRes?.ok) {
       const pyData = await pyRes.json();
       if (pyData.success && pyData.applications) {
-        backendApps.push(...pyData.applications.map((b: any) => ({
-          id: b.id || `app-${Date.now()}`,
-          opportunityId: b.opportunity_id || b.opportunityId,
-          companyId: companyId || 'c1',
-          companyName: b.company_name || b.companyName,
-          studentId: b.student_id || b.studentId || 'cand-1',
-          studentName: b.student_name || b.studentName || 'Jaswanth Kumar',
-          status: b.status || 'applied',
-          matchScore: b.match_score || b.matchScore || 92,
-          appliedAt: b.applied_at || b.appliedAt || new Date().toISOString(),
-          resumeUrl: b.resume_url || b.resumeUrl || '/resumes/jaswanth_resume.pdf',
-          matchingSkills: [
-            { name: 'Python', score: 95 },
-            { name: 'React', score: 92 },
-            { name: 'TypeScript', score: 90 }
-          ],
-          missingSkills: []
-        })));
+        backendApps.push(...pyData.applications.map((b: any) => mapIncomingApp(b, companyId)));
       }
     }
   } catch (e) {}
 
   // 2. Try Node Gateway (port 2816)
   try {
-    const res = await fetch(`${GATEWAY_URL}/api/opportunities/applications`);
-    if (res.ok) {
+    const res = await fetchWithTimeout(`${GATEWAY_URL}/api/opportunities/applications`);
+    if (res?.ok) {
       const data = await res.json();
       if (data.success && data.applications) {
-        backendApps.push(...data.applications.map((b: any) => ({
-          id: b.id || `app-${Date.now()}`,
-          opportunityId: b.opportunityId,
-          companyId: companyId || 'c1',
-          companyName: b.companyName,
-          studentId: b.studentId || 'cand-1',
-          studentName: b.studentName || 'Jaswanth Kumar',
-          status: b.status || 'applied',
-          matchScore: b.matchScore || 92,
-          appliedAt: b.appliedAt || new Date().toISOString(),
-          resumeUrl: b.resumeUrl || '/resumes/jaswanth_resume.pdf',
-          matchingSkills: [
-            { name: 'Python', score: 95 },
-            { name: 'React', score: 92 },
-            { name: 'TypeScript', score: 90 }
-          ],
-          missingSkills: []
-        })));
+        backendApps.push(...data.applications.map((b: any) => mapIncomingApp(b, companyId)));
       }
     }
   } catch (e) {}
@@ -360,27 +478,39 @@ export async function getApplications(companyId?: string): Promise<Application[]
     missingSkills: a.missingSkills || []
   }));
 
-  const allApps = [...backendApps, ...customApps, ...demoApplications];
-  const appMap = new Map();
+  const allApps = [...backendApps, ...demoApplications, ...customApps];
+  const appMap = new Map<string, Application>();
+  const keyOf = (a: Application) => a.id || `${a.studentId}::${a.opportunityId}`;
   allApps.forEach(a => {
-    if (a && a.id && !appMap.has(a.id)) {
-      appMap.set(a.id, a);
-    }
+    if (!a) return;
+    const key = keyOf(a);
+    if (!key) return;
+    const prev = appMap.get(key) || (a.studentId && a.opportunityId ? appMap.get(`${a.studentId}::${a.opportunityId}`) : undefined);
+    appMap.set(key, prev ? { ...prev, ...a, id: prev.id || a.id } : a);
   });
 
   const merged = Array.from(appMap.values());
-  if (!companyId) return merged;
+  const fromCampus = merged.filter(a => a.source === 'bridge' || Boolean(a.campusName));
+  const recruiterOwned = merged.filter(a =>
+    a.status === 'shortlisted' || a.status === 'selected' || a.status === 'interview'
+  );
+  const pool = fromCampus.length > 0
+    ? Array.from(new Map([...fromCampus, ...recruiterOwned].map(a => [a.id, a])).values())
+    : merged;
+  if (!companyId) return pool;
 
-  const filtered = merged.filter(a =>
+  const filtered = pool.filter(a =>
     companyOppIds.includes(a.opportunityId) ||
     a.companyId === companyId ||
-    (a as any).companyName ||
-    a.id.startsWith('app-') ||
-    a.opportunityId.startsWith('app-') ||
-    a.opportunityId.startsWith('opp-') ||
+    a.companyName ||
+    a.campusName ||
+    a.source === 'bridge' ||
+    a.id?.startsWith('app-') ||
+    a.opportunityId?.startsWith('app-') ||
+    a.opportunityId?.startsWith('opp-') ||
     a.status === 'applied'
   );
-  return filtered.length > 0 ? filtered : merged;
+  return filtered.length > 0 ? filtered : pool;
 }
 
 export async function getApplicationsByOpportunity(opportunityId: string): Promise<Application[]> {
@@ -434,6 +564,161 @@ export async function applyToOpportunity(params: {
   return newApp;
 }
 
+export async function shortlistCandidate(params: {
+  candidate: Candidate;
+  job: Opportunity;
+  matchScore?: number;
+  matchingSkills?: { name: string; score: number }[];
+  companyId?: string;
+  companyName?: string;
+  existing?: Application | null;
+  shortlist?: boolean;
+}): Promise<Application> {
+  const candidate = params.candidate;
+  const job = params.job;
+  const campusSource = isCampusApplicant({
+    source: params.existing?.source,
+    campusName: params.existing?.campusName,
+    studentId: candidate.id,
+    email: candidate.email || params.existing?.email,
+  });
+  const campusName = params.existing?.campusName || (campusSource ? candidate.education?.[0]?.institution : undefined);
+  const status: Application['status'] = params.shortlist === false ? 'under-review' : 'shortlisted';
+  const app = upsertCustomApp({
+    id: params.existing?.id || `app-sl-${candidate.id}-${job.id}`,
+    opportunityId: job.id,
+    studentId: candidate.id,
+    companyId: params.companyId || job.companyId,
+    companyName: params.companyName || job.companyName,
+    studentName: candidate.name,
+    email: candidate.email || params.existing?.email,
+    phone: candidate.phone || params.existing?.phone,
+    cgpa: candidate.cgpa || candidate.education?.[0]?.cgpa || params.existing?.cgpa,
+    department: candidate.education?.[0]?.field || params.existing?.department,
+    campusName: campusSource ? campusName : params.existing?.campusName,
+    campusLocation: params.existing?.campusLocation || candidate.location,
+    jobTitle: job.title,
+    resumeUrl: candidate.resumeUrl || params.existing?.resumeUrl,
+    matchScore: params.matchScore ?? params.existing?.matchScore ?? 80,
+    matchingSkills: params.matchingSkills?.map(s => ({ name: s.name, score: s.score })) || params.existing?.matchingSkills || [],
+    status,
+    appliedAt: params.existing?.appliedAt || new Date().toISOString(),
+    source: campusSource ? 'bridge' : (params.existing?.source || 'hiero'),
+    notes: status === 'shortlisted' ? 'Shortlisted by recruiter in Connect.' : params.existing?.notes,
+    selectionNotifiedAt: params.existing?.selectionNotifiedAt,
+  });
+
+  if (status === 'shortlisted' && isCampusApplicant(app)) {
+    await notifyCampusAdmin({
+      applicationId: params.existing?.id || app.id,
+      studentId: candidate.id,
+      opportunityId: job.id,
+      studentName: candidate.name,
+      email: app.email,
+      phone: app.phone,
+      cgpa: app.cgpa,
+      department: app.department,
+      campusName: app.campusName,
+      campusLocation: app.campusLocation,
+      jobTitle: job.title,
+      companyName: app.companyName || job.companyName,
+      matchScore: app.matchScore,
+      skills: (candidate.skills || []).map(s => s.name),
+      resumeUrl: app.resumeUrl,
+      status: 'shortlisted',
+      bridgeStatus: 'Shortlisted',
+      notes: `Recruiter shortlisted ${candidate.name} for ${job.title}.`,
+    });
+  }
+
+  return app;
+}
+
+export function composeSelectionEmail(params: {
+  app: Application;
+  candidate: Candidate;
+  job: Opportunity;
+  recruiterName?: string;
+  companyName?: string;
+}): { to: string; subject: string; body: string } {
+  const { app, candidate, job } = params;
+  const company = params.companyName || app.companyName || job.companyName || 'our company';
+  const recruiter = params.recruiterName || 'Recruiting Team';
+  const name = candidate.name || app.studentName || 'Candidate';
+  const role = app.jobTitle || job.title;
+  const campusNote = isCampusApplicant(app)
+    ? ' Your college placement office has also been notified.'
+    : '';
+  return {
+    to: candidate.email || app.email || '',
+    subject: `Congratulations — you've been selected for ${role}`,
+    body: `Dear ${name},
+
+We are pleased to inform you that you have been selected for the ${role} role at ${company}.
+
+Our team will share joining / next-step details shortly.${campusNote}
+
+Congratulations again.
+
+Regards,
+${recruiter}
+${company}`,
+  };
+}
+
+export async function sendSelectionNotice(params: {
+  app: Application;
+  candidate: Candidate;
+  job: Opportunity;
+  recruiterName?: string;
+  companyName?: string;
+  subject?: string;
+  body?: string;
+}): Promise<Application> {
+  const { app, candidate, job } = params;
+  const company = params.companyName || app.companyName || job.companyName || 'our company';
+  const recruiter = params.recruiterName || 'Recruiting Team';
+  const email = candidate.email || app.email || '';
+  const name = candidate.name || app.studentName || 'Candidate';
+  const role = app.jobTitle || job.title;
+
+  const updated = upsertCustomApp({
+    ...app,
+    status: 'selected',
+    studentName: name,
+    email: email || app.email,
+    jobTitle: role,
+    selectionNotifiedAt: new Date().toISOString(),
+    notes: `Selection email sent${email ? ` to ${email}` : ''}.`,
+  });
+
+  if (isCampusApplicant(updated)) {
+    await notifyCampusAdmin({
+      applicationId: app.id,
+      studentId: candidate.id || app.studentId,
+      opportunityId: job.id || app.opportunityId,
+      studentName: name,
+      email,
+      phone: candidate.phone || app.phone,
+      cgpa: candidate.cgpa || app.cgpa,
+      department: app.department,
+      campusName: app.campusName,
+      campusLocation: app.campusLocation,
+      jobTitle: role,
+      companyName: company,
+      matchScore: app.matchScore,
+      skills: (candidate.skills || []).map(s => s.name),
+      resumeUrl: candidate.resumeUrl || app.resumeUrl,
+      status: 'selected',
+      bridgeStatus: 'Selected',
+      notes: `Recruiter selected ${name} for ${role} at ${company}. Placement cell notified.`,
+      recruiterName: recruiter,
+    });
+  }
+
+  return updated;
+}
+
 export async function getStudentApplications(studentId: string = 'cand-1'): Promise<Application[]> {
   await delay(250);
   const customApps = getStoredCustomApps();
@@ -442,9 +727,239 @@ export async function getStudentApplications(studentId: string = 'cand-1'): Prom
 }
 
 // --- Match Results ---
+const SKILL_ALIASES: Record<string, string> = {
+  ml: 'machine learning',
+  'machine learning': 'machine learning',
+  'artificial intelligence': 'machine learning',
+  ai: 'machine learning',
+  tf: 'tensorflow',
+  tensorflow: 'tensorflow',
+  keras: 'tensorflow',
+  pytorch: 'pytorch',
+  'scikit-learn': 'scikit-learn',
+  sklearn: 'scikit-learn',
+  nlp: 'nlp',
+  'natural language processing': 'nlp',
+  cv: 'computer vision',
+  'computer vision': 'computer vision',
+  llm: 'llms',
+  llms: 'llms',
+  rag: 'rag',
+  js: 'javascript',
+  javascript: 'javascript',
+  ts: 'typescript',
+  typescript: 'typescript',
+  reactjs: 'react',
+  'react.js': 'react',
+  react: 'react',
+  node: 'node.js',
+  nodejs: 'node.js',
+  'node.js': 'node.js',
+  postgres: 'postgresql',
+  postgresql: 'postgresql',
+  mysql: 'sql',
+  sql: 'sql',
+  'rest apis': 'rest apis',
+  rest: 'rest apis',
+  api: 'rest apis',
+  restful: 'rest apis',
+  docker: 'docker',
+  k8s: 'kubernetes',
+  kubernetes: 'kubernetes',
+  aws: 'aws',
+  git: 'git',
+  github: 'git',
+  python: 'python',
+};
+
+function normalizeSkillName(name?: string): string {
+  const raw = (name || '').toLowerCase().trim().replace(/[^a-z0-9+.# ]/g, ' ').replace(/\s+/g, ' ');
+  return SKILL_ALIASES[raw] || raw;
+}
+
+function normalizeJobSkills(skills?: SkillRequirement[] | string[] | string): SkillRequirement[] {
+  if (!skills) return [];
+  const list = typeof skills === 'string'
+    ? skills.split(/[,|/]/).map(s => s.trim()).filter(Boolean)
+    : Array.isArray(skills) ? skills : [];
+  return list.map(s =>
+    typeof s === 'string'
+      ? { name: s, importance: 'high' as const, category: 'required' as const }
+      : s
+  ).filter(s => s?.name);
+}
+
+function candidateSkillMap(candidate: Candidate): Map<string, number> {
+  const map = new Map<string, number>();
+  const bump = (name: string, score: number) => {
+    const key = normalizeSkillName(name);
+    if (!key) return;
+    map.set(key, Math.max(map.get(key) || 0, Math.round(score)));
+  };
+
+  (candidate.skills || []).forEach(s => bump(s.name, s.competency || 0));
+  (candidate.projects || []).forEach(p => (p.skills || []).forEach(s => bump(s, 74)));
+  (candidate.experience || []).forEach(e => (e.skills || []).forEach(s => bump(s, 70)));
+  return map;
+}
+
+function skillScoreFor(reqName: string, catalog: Map<string, number>): number {
+  const key = normalizeSkillName(reqName);
+  if (catalog.has(key)) return catalog.get(key) as number;
+  for (const [cand, score] of catalog) {
+    if (cand.length < 5 || key.length < 5) continue;
+    if (key.includes(cand) || cand.includes(key)) return Math.round(score * 0.85);
+  }
+  return 0;
+}
+
+function candidateFromApplication(a: Application): Candidate {
+  return {
+    id: a.studentId || a.id,
+    name: a.studentName || 'Campus applicant',
+    email: a.email || '',
+    phone: a.phone,
+    headline: [a.department, a.campusName].filter(Boolean).join(' · ') || 'HIERO Bridge applicant',
+    location: a.campusLocation || 'India',
+    skills: (a.matchingSkills || []).map(s => ({
+      name: s.name,
+      competency: s.score,
+      verified: true,
+      lastAssessedAt: a.appliedAt,
+    })),
+    projects: (a.projects || []).map(p => ({
+      title: p.title,
+      description: p.description || p.tech || '',
+      skills: p.skills || [],
+    })),
+    education: [{
+      institution: a.campusName || 'Campus Partner',
+      degree: 'B.Tech',
+      field: a.department || 'Computer Science',
+      startYear: 2022,
+      endYear: 2026,
+      cgpa: a.cgpa,
+    }],
+    experience: [],
+    certifications: [],
+    resumeUrl: a.resumeUrl,
+    cgpa: a.cgpa,
+    authorizedSections: ['all'],
+  };
+}
+
+function weightedAverage(items: { score: number; weight: number }[]): number {
+  const totalWeight = items.reduce((sum, i) => sum + i.weight, 0);
+  if (!totalWeight) return 0;
+  return items.reduce((sum, i) => sum + i.score * i.weight, 0) / totalWeight;
+}
+
+function scoreAgainstJob(candidate: Candidate, job: Opportunity, appScore?: number): MatchResult {
+  const required = normalizeJobSkills(job.requiredSkills);
+  const preferred = normalizeJobSkills(job.preferredSkills);
+  const jobSkills = [
+    ...required.map(s => ({ ...s, category: 'required' as const })),
+    ...preferred.map(s => ({ ...s, category: s.category || 'preferred' as const })),
+  ];
+  const catalogSkills = jobSkills.length
+    ? jobSkills
+    : [{ name: 'Python', importance: 'high' as const, category: 'required' as const }];
+
+  const candSkills = candidateSkillMap(candidate);
+  const skillMatches = catalogSkills.map(req => {
+    const score = skillScoreFor(req.name, candSkills);
+    return {
+      name: req.name,
+      score,
+      meetsRequired: req.category !== 'required' || score >= 60,
+    };
+  });
+
+  const requiredMatches = skillMatches.filter((_, i) => catalogSkills[i].category === 'required');
+  const preferredMatches = skillMatches.filter((_, i) => catalogSkills[i].category !== 'required');
+  const requiredPool = requiredMatches.length ? requiredMatches : skillMatches;
+  const matchedRequired = requiredPool.filter(s => s.score >= 50);
+  const coverage = matchedRequired.length / Math.max(1, requiredPool.length);
+  const qualityItems = requiredPool.filter(s => s.score > 0).map(s => ({
+    score: s.score,
+    weight: 1,
+  }));
+  const quality = qualityItems.length ? weightedAverage(qualityItems) : 0;
+  const preferredQuality = preferredMatches.filter(s => s.score > 0);
+  const preferredBonus = preferredMatches.length
+    ? (preferredQuality.reduce((sum, s) => sum + s.score, 0) / preferredMatches.length) * 0.12
+    : 0;
+
+  let overallScore = Math.round(coverage * 48 + quality * 0.5 + preferredBonus);
+
+  if (candidate.cgpa && candidate.cgpa >= 8) overallScore += 3;
+  else if (candidate.cgpa && candidate.cgpa >= 7.5) overallScore += 1;
+
+  if (typeof appScore === 'number' && appScore > 0) {
+    overallScore = Math.round(overallScore * 0.85 + appScore * 0.15);
+  }
+
+  overallScore = Math.min(99, Math.max(1, overallScore));
+
+  const requiredNames = required.length ? required : catalogSkills.filter(s => s.category === 'required');
+  const matchedCount = skillMatches.filter(s => s.meetsRequired && requiredNames.some(r => r.name === s.name)).length;
+  const totalRequired = Math.max(1, requiredNames.length);
+  const strengths = skillMatches.filter(s => s.score >= 80).map(s => `${s.name} (${s.score}%)`);
+  const gaps = skillMatches.filter(s => s.score < 60).map(s => `${s.name} (${s.score}%)`);
+
+  let matchExplanation = '';
+  if (matchedCount >= totalRequired) {
+    matchExplanation = `Strong alignment with required skills for ${job.title}.`;
+  } else {
+    matchExplanation = `Aligns with ${matchedCount} of ${totalRequired} required skills${gaps.length ? `. Gaps: ${gaps.join(', ')}` : '.'}`;
+  }
+  if (candidate.cgpa) matchExplanation += ` Campus CGPA ${candidate.cgpa}/10.`;
+
+  return {
+    candidateId: candidate.id,
+    overallScore,
+    skillMatches,
+    matchExplanation,
+    strengths,
+    gaps,
+  };
+}
+
 export async function getMatchResults(opportunityId: string): Promise<MatchResult[]> {
-  await delay(400);
-  return generateMatchResults(opportunityId);
+  await delay(250);
+  const job = await getOpportunityById(opportunityId);
+  const [candidates, apps] = await Promise.all([
+    getCandidates(),
+    getApplications(),
+  ]);
+
+  const relatedApps = apps.filter(a =>
+    a.opportunityId === opportunityId ||
+    (job && a.jobTitle && a.jobTitle === job.title)
+  );
+
+  const pool: Candidate[] = [
+    ...relatedApps.map(candidateFromApplication),
+    ...candidates,
+  ];
+
+  const seen = new Set<string>();
+  const unique = pool.filter(c => {
+    if (!c?.id || seen.has(c.id)) return false;
+    seen.add(c.id);
+    return true;
+  });
+
+  if (!job) {
+    return generateMatchResults(opportunityId);
+  }
+
+  return unique
+    .map(c => {
+      const app = relatedApps.find(a => a.studentId === c.id || a.id === c.id);
+      return scoreAgainstJob(c, job, app?.matchScore);
+    })
+    .sort((a, b) => b.overallScore - a.overallScore);
 }
 
 // --- Dashboard ---

@@ -170,6 +170,16 @@ export interface Application {
   status: ApplicationStatus;
   appliedAt: string;
   notes?: string;
+  campusName?: string;
+  campusLocation?: string;
+  cgpa?: number;
+  department?: string;
+  email?: string;
+  phone?: string;
+  jobTitle?: string;
+  source?: 'bridge' | 'hiero' | 'demo';
+  projects?: { title: string; description?: string; skills?: string[]; tech?: string }[];
+  selectionNotifiedAt?: string;
 }
 
 // --- Shortlist ---

@@ -132,11 +132,11 @@ export default function Jobs() {
                   </div>
 
                   <div className="flex flex-wrap gap-1.5">
-                    {job.requiredSkills.slice(0, 4).map(s => (
-                      <span key={s.name} className="tag-skill-green">{s.name}</span>
+                    {(job.requiredSkills || []).slice(0, 4).map(s => (
+                      <span key={typeof s === 'string' ? s : s.name} className="tag-skill-green">{typeof s === 'string' ? s : s.name}</span>
                     ))}
-                    {job.preferredSkills.slice(0, 2).map(s => (
-                      <span key={s.name} className="tag-skill-purple">{s.name}</span>
+                    {(job.preferredSkills || []).slice(0, 2).map(s => (
+                      <span key={typeof s === 'string' ? s : s.name} className="tag-skill-purple">{typeof s === 'string' ? s : s.name}</span>
                     ))}
                     {job.requiredSkills.length > 4 && (
                       <span className="tag-skill-gray">+{job.requiredSkills.length - 4}</span>

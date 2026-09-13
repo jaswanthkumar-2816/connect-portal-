@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FileText, SlidersHorizontal, ArrowUpDown } from 'lucide-react';
+import { FileText, SlidersHorizontal, ArrowUpDown, GraduationCap, MapPin, Users, ChevronRight, ArrowLeft } from 'lucide-react';
 import { getApplications, getOpportunities, getCandidates } from '../../services/hiroService';
 import { useAuthStore } from '../../store/authStore';
 import { formatDate, getStatusLabel } from '../../lib/utils';
@@ -38,19 +38,33 @@ export default function Applications() {
   const [filterStatus, setFilterStatus] = useState('all');
   const [sortBy, setSortBy] = useState<'match' | 'recent'>('match');
   const [loading, setLoading] = useState(true);
+  const [selectedAppForModal, setSelectedAppForModal] = useState<{ app: Application; candidate: Candidate | null; jobTitle: string } | null>(null);
+  const [selectedCampus, setSelectedCampus] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     const compId = user?.companyId || 'c1';
     Promise.all([
       getApplications(compId),
       getOpportunities(compId),
       getCandidates(),
-    ]).then(([a, o, c]) => {
-      setApplications(a);
-      setOpportunities(o);
-      setCandidates(c);
-      setLoading(false);
-    });
+    ])
+      .then(([a, o, c]) => {
+        if (cancelled) return;
+        setApplications(a);
+        setOpportunities(o);
+        setCandidates(c);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setApplications([]);
+        setOpportunities([]);
+        setCandidates([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
   }, [user]);
 
   const filtered = applications
@@ -76,15 +90,33 @@ export default function Applications() {
     color: 'var(--color-text)',
   };
 
-  const [selectedAppForModal, setSelectedAppForModal] = useState<{ app: Application; candidate: Candidate | null; jobTitle: string } | null>(null);
+  const campusNameOf = (app: Application) => app.campusName || 'Other campuses';
+  const campusGroups = filtered.reduce<Record<string, Application[]>>((acc, app) => {
+    const key = campusNameOf(app);
+    (acc[key] ||= []).push(app);
+    return acc;
+  }, {});
+  const campusList = Object.entries(campusGroups).sort((a, b) => b[1].length - a[1].length);
+  const campusApps = selectedCampus ? (campusGroups[selectedCampus] || []) : [];
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between animate-slide-up">
         <div>
-          <h1 className="text-2xl font-black text-[var(--color-text)]" style={{ fontFamily: 'Outfit, sans-serif' }}>Applications</h1>
-          <p className="text-sm text-[var(--color-muted)] mt-1 font-medium">{filtered.length} application{filtered.length !== 1 ? 's' : ''}</p>
+          {selectedCampus ? (
+            <button onClick={() => setSelectedCampus(null)} className="flex items-center gap-1.5 text-xs font-bold text-[#06c006] mb-2">
+              <ArrowLeft size={14} /> All campuses
+            </button>
+          ) : null}
+          <h1 className="text-2xl font-black text-[var(--color-text)]" style={{ fontFamily: 'Outfit, sans-serif' }}>
+            {selectedCampus || 'Campus Applications'}
+          </h1>
+          <p className="text-sm text-[var(--color-muted)] mt-1 font-medium">
+            {selectedCampus
+              ? `${campusApps.length} applicant${campusApps.length !== 1 ? 's' : ''} sent from Bridge`
+              : `${campusList.length} campus${campusList.length !== 1 ? 'es' : ''} · ${filtered.length} application${filtered.length !== 1 ? 's' : ''}`}
+          </p>
         </div>
       </div>
 
@@ -122,21 +154,57 @@ export default function Applications() {
         </button>
       </div>
 
-      {/* Application List */}
+      {/* Campus cards or applicant list */}
       {filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 rounded-2xl border border-dashed"
           style={{ background: 'var(--color-surface-3)', borderColor: 'var(--color-border)' }}>
-          <FileText size={36} className="text-[var(--color-muted)] mb-3 opacity-40" />
-          <p className="text-sm font-bold text-[var(--color-muted)]">No applications found</p>
-          <p className="text-xs text-[var(--color-muted)] mt-1 font-medium">Try adjusting your filters.</p>
+          <GraduationCap size={36} className="text-[var(--color-muted)] mb-3 opacity-40" />
+          <p className="text-sm font-bold text-[var(--color-muted)]">No campus applications yet</p>
+          <p className="text-xs text-[var(--color-muted)] mt-1 font-medium">When students apply on Bridge, campuses will appear here.</p>
+        </div>
+      ) : !selectedCampus ? (
+        <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
+          {campusList.map(([campus, apps], i) => {
+            const loc = apps.find(a => a.campusLocation)?.campusLocation;
+            const roles = Array.from(new Set(apps.map(a => a.jobTitle).filter(Boolean))).slice(0, 2);
+            return (
+              <button
+                key={campus}
+                onClick={() => setSelectedCampus(campus)}
+                className="cp-card rounded-2xl p-5 text-left hiero-card-hover animate-card-in"
+                style={{ animationDelay: `${i * 40}ms` }}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="w-11 h-11 rounded-xl bg-[#06c006]/12 border border-[#06c006]/30 flex items-center justify-center text-[#06c006] flex-shrink-0">
+                    <GraduationCap size={20} />
+                  </div>
+                  <ChevronRight size={16} className="text-[var(--color-muted)] mt-1" />
+                </div>
+                <h3 className="mt-3 font-black text-[var(--color-text)] text-sm" style={{ fontFamily: 'Outfit, sans-serif' }}>{campus}</h3>
+                {loc ? (
+                  <p className="text-[11px] text-[var(--color-muted)] mt-1 flex items-center gap-1 font-medium">
+                    <MapPin size={11} /> {loc}
+                  </p>
+                ) : null}
+                <div className="flex items-center justify-between mt-3 pt-3 border-t" style={{ borderColor: 'var(--color-border)' }}>
+                  <span className="text-xs font-bold text-[#06c006] flex items-center gap-1">
+                    <Users size={13} /> {apps.length} applicant{apps.length !== 1 ? 's' : ''}
+                  </span>
+                  <span className="text-[10px] font-semibold text-[var(--color-muted)] truncate max-w-[55%]">
+                    {roles.join(' · ') || 'Bridge portal'}
+                  </span>
+                </div>
+              </button>
+            );
+          })}
         </div>
       ) : (
         <div className="space-y-2.5">
-          {filtered.map((app, i) => {
+          {campusApps.map((app, i) => {
             const job = opportunities.find(o => o.id === app.opportunityId);
-            const candidate = candidates.find(c => c.id === app.studentId) || (candidates.length > 0 ? candidates[0] : null);
+            const candidate = candidates.find(c => c.id === app.studentId) || null;
             const statusClass = `status-${app.status === 'under-review' ? 'review' : app.status}`;
-            const jobTitle = job?.title || (app as any).companyName || 'Software Engineer';
+            const jobTitle = app.jobTitle || job?.title || app.companyName || 'Software Engineer';
 
             return (
               <div
@@ -153,19 +221,25 @@ export default function Applications() {
                         onClick={() => setSelectedAppForModal({ app, candidate, jobTitle })}
                         className="font-bold text-[var(--color-text)] hover:text-[#06c006] transition-colors text-sm text-left"
                       >
-                        {candidate?.name || (app as any).studentName || 'Jaswanth Kumar'}
+                        {candidate?.name || app.studentName || 'Campus applicant'}
                       </button>
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-lg capitalize ${statusClass}`}>
                         {getStatusLabel(app.status)}
                       </span>
+                      {app.cgpa != null && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-[#06c006]/12 text-[#06c006]">
+                          CGPA {app.cgpa}
+                        </span>
+                      )}
                     </div>
                     <p className="text-xs text-[var(--color-muted)] font-medium">
+                      {app.department ? `${app.department} · ` : ''}
                       Applied for <span className="text-[var(--color-text)] font-semibold">{jobTitle}</span>
                       {' · '}{formatDate(app.appliedAt)}
                     </p>
-                    {app.matchingSkills.length > 0 && (
+                    {(app.matchingSkills?.length ?? 0) > 0 && (
                       <div className="flex flex-wrap gap-1.5 mt-2">
-                        {app.matchingSkills.slice(0, 4).map(s => (
+                        {(app.matchingSkills ?? []).slice(0, 4).map(s => (
                           <span key={s.name} className="tag-skill-green">{s.name} {s.score}%</span>
                         ))}
                       </div>
@@ -270,7 +344,7 @@ export default function Applications() {
                         {(selectedAppForModal.candidate?.name || (selectedAppForModal.app as any).studentName || 'JASWANTH KUMAR').toUpperCase()}
                       </h1>
                       <p className="text-slate-600 font-medium text-[11px] mt-0.5">
-                        {selectedAppForModal.candidate?.headline || 'Full Stack & AI Engineer | HIERO Skill Verified'}
+                        {selectedAppForModal.app.campusName || selectedAppForModal.candidate?.headline || 'Campus applicant from HIERO Bridge'}
                       </p>
                       <div className="flex flex-wrap items-center gap-3 mt-2 text-[10px] text-slate-500 font-medium">
                         <span>📍 {selectedAppForModal.candidate?.location || 'Bangalore, India'}</span>
@@ -280,7 +354,7 @@ export default function Applications() {
                     </div>
                     <div className="text-right flex-shrink-0">
                       <span className="inline-block px-2.5 py-1 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px]">
-                        CGPA: {selectedAppForModal.candidate?.cgpa || 9.2} / 10
+                        CGPA: {selectedAppForModal.app.cgpa || selectedAppForModal.candidate?.cgpa || 8.5} / 10
                       </span>
                       <div className="text-[9px] text-slate-400 font-semibold mt-1">Batch 2026</div>
                     </div>
@@ -293,7 +367,7 @@ export default function Applications() {
                     </h3>
                     <div className="flex justify-between items-baseline">
                       <div>
-                        <strong className="text-slate-900 font-bold">IIT Madras</strong> · <span className="text-slate-700">B.Tech in Computer Science</span>
+                        <strong className="text-slate-900 font-bold">{selectedAppForModal.app.campusName || selectedAppForModal.candidate?.education?.[0]?.institution || 'Campus Partner'}</strong> · <span className="text-slate-700">{selectedAppForModal.app.department || selectedAppForModal.candidate?.education?.[0]?.field || 'B.Tech'}</span>
                       </div>
                       <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">CGPA: {selectedAppForModal.candidate?.cgpa || 9.2}</span>
                     </div>

@@ -1,7 +1,9 @@
 import type { ApplicationStatus } from '../types';
 
 export function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('en-IN', {
+  const d = dateStr ? new Date(dateStr) : new Date();
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-IN', {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
@@ -34,6 +36,7 @@ export function getStatusColor(status: ApplicationStatus): string {
 }
 
 export function getStatusLabel(status: ApplicationStatus): string {
+  if (!status) return 'Applied';
   return status.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 }
 

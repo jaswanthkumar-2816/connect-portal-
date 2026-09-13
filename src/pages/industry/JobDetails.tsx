@@ -48,10 +48,11 @@ export default function JobDetails() {
             <span className="flex items-center gap-1"><Clock size={14} />Deadline: {formatDate(job.deadline)}</span>
           </div>
         </div>
-        <Link to={`/industry/matches/${job.id}`}>
-          <button className="hiero-btn-primary text-sm font-bold shadow-[0_0_20px_rgba(6,192,6,0.2)]">
-            <Eye size={16} /> View Matches
-          </button>
+        <Link
+          to={`/industry/matches/${encodeURIComponent(job.id)}`}
+          className="hiero-btn-primary text-sm font-bold shadow-[0_0_20px_rgba(6,192,6,0.2)] inline-flex items-center gap-2"
+        >
+          <Eye size={16} /> View Matches
         </Link>
       </div>
 
@@ -65,15 +66,19 @@ export default function JobDetails() {
           <Card className={`p-6 hiero-hover-glow transition-all duration-500 delay-200 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
             <h2 className="text-lg font-bold text-[var(--color-text)] mb-4" style={{ fontFamily: 'Outfit, sans-serif' }}>Required Skills</h2>
             <div className="flex flex-wrap gap-2">
-              {job.requiredSkills.map(s => <SkillTag key={s.name} name={s.name} variant="required" size="md" />)}
+              {(job.requiredSkills || []).map(s => (
+                <SkillTag key={typeof s === 'string' ? s : s.name} name={typeof s === 'string' ? s : s.name} variant="required" size="md" />
+              ))}
             </div>
           </Card>
 
-          {job.preferredSkills.length > 0 && (
+          {(job.preferredSkills?.length ?? 0) > 0 && (
             <Card className={`p-6 hiero-hover-glow transition-all duration-500 delay-300 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
               <h2 className="text-lg font-bold text-[var(--color-text)] mb-4" style={{ fontFamily: 'Outfit, sans-serif' }}>Preferred Skills</h2>
               <div className="flex flex-wrap gap-2">
-                {job.preferredSkills.map(s => <SkillTag key={s.name} name={s.name} variant="preferred" size="md" />)}
+                {job.preferredSkills.map(s => (
+                  <SkillTag key={typeof s === 'string' ? s : s.name} name={typeof s === 'string' ? s : s.name} variant="preferred" size="md" />
+                ))}
               </div>
             </Card>
           )}
