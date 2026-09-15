@@ -21,6 +21,8 @@ import {
   demoDashboardStats,
   demoCompanies,
   demoOpportunities,
+  bridgeCandidates,
+  bridgeApplications,
   generateMatchResults,
 } from '../data/demo';
 
@@ -40,6 +42,126 @@ async function fetchWithTimeout(url: string, ms = 2500, init?: RequestInit): Pro
   } finally {
     clearTimeout(timer);
   }
+}
+
+export interface College {
+  id: string;
+  name: string;
+  code?: string;
+  location?: string;
+  tier?: string;
+  currentBatch?: string;
+  departments?: { id: string; name: string; code?: string; totalStudents?: number }[];
+  coordinators?: { id: string; name: string; email: string; dept: string }[];
+  totalStudents?: number;
+  totalApplications?: number;
+}
+
+export async function getColleges(): Promise<College[]> {
+  try {
+    const res = await fetchWithTimeout(`${BRIDGE_URL}/api/connect/colleges`, 3000);
+    if (res?.ok) {
+      const data = await res.json();
+      if (data.success && Array.isArray(data.colleges) && data.colleges.length > 0) {
+        return data.colleges;
+      }
+    }
+  } catch (e) {}
+
+  return [
+    {
+      id: 'NITW-IN',
+      name: 'National Institute of Technology, Warangal',
+      code: 'NITW-IN',
+      location: 'Warangal, Telangana, India',
+      tier: 'Tier-1 Premier Autonomous Institution',
+      currentBatch: '2022-2026',
+      departments: [
+        { id: 'CSE', name: 'Computer Science & Engineering', code: 'CSE', totalStudents: 140 },
+        { id: 'AIML', name: 'Artificial Intelligence & Machine Learning', code: 'AIML', totalStudents: 75 },
+        { id: 'IT', name: 'Information Technology', code: 'IT', totalStudents: 80 },
+        { id: 'ECE', name: 'Electronics & Communication Engineering', code: 'ECE', totalStudents: 120 },
+        { id: 'MECH', name: 'Mechanical Engineering', code: 'MECH', totalStudents: 90 }
+      ],
+      coordinators: [
+        { id: 'COORD-01', name: 'Dr. Ramesh Kulkarni', email: 'ramesh.tpo@college.edu', dept: 'Head of Placement' }
+      ],
+      totalStudents: 10,
+      totalApplications: 10,
+    },
+    {
+      id: 'IITH-IN',
+      name: 'Indian Institute of Technology, Hyderabad',
+      code: 'IITH-IN',
+      location: 'Kandi, Sangareddy, Telangana, India',
+      tier: 'Institute of National Importance (Tier-1)',
+      currentBatch: '2022-2026',
+      departments: [
+        { id: 'CSE', name: 'Computer Science & Engineering', code: 'CSE', totalStudents: 120 },
+        { id: 'AI', name: 'Department of Artificial Intelligence', code: 'AI', totalStudents: 60 },
+        { id: 'EE', name: 'Electrical Engineering', code: 'EE', totalStudents: 90 }
+      ],
+      coordinators: [
+        { id: 'COORD-02', name: 'Prof. S. Rajagopalan', email: 'rajagopalan.tpo@iith.ac.in', dept: 'Dean of Industrial Relations' }
+      ],
+      totalStudents: 10,
+      totalApplications: 10,
+    },
+    {
+      id: 'BITS-PILANI',
+      name: 'Birla Institute of Technology and Science, Pilani',
+      code: 'BITS-PILANI',
+      location: 'Pilani, Rajasthan & Hyderabad Campus, India',
+      tier: 'Premier Deemed University & Institution of Eminence',
+      currentBatch: '2022-2026',
+      departments: [
+        { id: 'CS', name: 'Computer Science', code: 'CS', totalStudents: 180 },
+        { id: 'EEE', name: 'Electrical & Electronics', code: 'EEE', totalStudents: 150 },
+        { id: 'DS', name: 'Data Science & FinTech', code: 'DS', totalStudents: 85 }
+      ],
+      coordinators: [
+        { id: 'COORD-03', name: 'Dr. Manish Kumar', email: 'manish.tpo@pilani.bits-pilani.ac.in', dept: 'Chief Placement Officer' }
+      ],
+      totalStudents: 10,
+      totalApplications: 10,
+    },
+    {
+      id: 'NITK-IN',
+      name: 'National Institute of Technology, Surathkal',
+      code: 'NITK-IN',
+      location: 'Mangalore, Karnataka, India',
+      tier: 'Institute of National Importance (Tier-1)',
+      currentBatch: '2022-2026',
+      departments: [
+        { id: 'CSE', name: 'Computer Science & Engineering', code: 'CSE', totalStudents: 135 },
+        { id: 'IT', name: 'Information Technology', code: 'IT', totalStudents: 85 },
+        { id: 'AIML', name: 'Artificial Intelligence', code: 'AIML', totalStudents: 65 }
+      ],
+      coordinators: [
+        { id: 'COORD-04', name: 'Dr. Vijayendra Kumar', email: 'vijayendra.tpo@nitk.edu.in', dept: 'Head, Career Development Centre' }
+      ],
+      totalStudents: 10,
+      totalApplications: 10,
+    },
+    {
+      id: 'DTU-DELHI',
+      name: 'Delhi Technological University',
+      code: 'DTU-DELHI',
+      location: 'Rohini, New Delhi, India',
+      tier: 'Premier State Technical University',
+      currentBatch: '2022-2026',
+      departments: [
+        { id: 'CSE', name: 'Computer Science & Engineering', code: 'CSE', totalStudents: 220 },
+        { id: 'IT', name: 'Information Technology', code: 'IT', totalStudents: 140 },
+        { id: 'SE', name: 'Software Engineering', code: 'SE', totalStudents: 110 }
+      ],
+      coordinators: [
+        { id: 'COORD-05', name: 'Prof. Rajesh Rohilla', email: 'rajesh.tpo@dtu.ac.in', dept: 'Head, Training & Placement' }
+      ],
+      totalStudents: 10,
+      totalApplications: 10,
+    }
+  ];
 }
 
 function skillNames(skills?: { name: string }[] | string[]): string[] {
@@ -71,64 +193,14 @@ function saveCustomOpp(opp: Opportunity) {
 
 // --- Candidate Operations ---
 export async function getCandidates(): Promise<Candidate[]> {
-  await delay(300);
-  const defaultCandidate: Candidate = {
-    id: 'cand-1',
-    name: 'Jaswanth Kumar',
-    email: 'jaswanth@hiero.ai',
-    phone: '+91 98765 43210',
-    headline: 'Full Stack & AI Engineer | HIERO Skill Verified',
-    location: 'Bangalore, India',
-    resumeUrl: '/resumes/Jaswanth_Kumar_Resume_Master.pdf',
-    aboutMe: 'High-caliber Full Stack & AI Engineer specializing in TypeScript, React, Python, and scalable machine learning micro-services.',
-    skills: [
-      { name: 'Python', competency: 95, verified: true, lastAssessedAt: '2026-08-20' },
-      { name: 'React', competency: 92, verified: true, lastAssessedAt: '2026-08-18' },
-      { name: 'TypeScript', competency: 90, verified: true, lastAssessedAt: '2026-08-15' },
-      { name: 'SQL', competency: 88, verified: true, lastAssessedAt: '2026-08-10' },
-    ],
-    projects: [
-      {
-        title: 'HIERO AI Career & Skill Gateway',
-        description: 'Built a multi-service routing architecture with real-time candidate verification and micro-curriculum engines.',
-        skills: ['TypeScript', 'Node.js', 'Express', 'MongoDB']
-      },
-      {
-        title: 'Neural Code Analyzer & Sandbox',
-        description: 'Implemented AST code parser and execution sandbox for adaptive skill assessments.',
-        skills: ['Python', 'PyTorch', 'Docker', 'REST APIs']
-      }
-    ],
-    education: [
-      { institution: 'IIT Madras', degree: 'B.Tech', field: 'Computer Science', startYear: 2022, endYear: 2026, cgpa: 9.2 }
-    ],
-    experience: [
-      {
-        company: 'TechNova AI Systems',
-        role: 'Full Stack Engineering Intern',
-        description: 'Developed reactive UI components, micro-services, and automated ML pipelines.',
-        startDate: '2025-05',
-        endDate: '2025-08',
-        skills: ['Python', 'React', 'FastAPI', 'PostgreSQL']
-      }
-    ],
-    certifications: [
-      { name: 'AWS Certified Solutions Architect', issuer: 'Amazon Web Services', date: '2025-11' }
-    ],
-    links: { github: 'https://github.com/jaswanthkumar-2816' },
-    cgpa: 9.2,
-    passingYear: 2026,
-    score: 95,
-    createdAt: '2026-08-20',
-    authorizedSections: ['all']
-  };
-  return [defaultCandidate, ...demoCandidates];
+  await delay(150);
+  return [...demoCandidates, ...bridgeCandidates];
 }
 
 export async function getCandidateById(id: string): Promise<Candidate | null> {
-  await delay(200);
+  await delay(100);
   const list = await getCandidates();
-  return list.find(c => c.id === id) ?? list[0] ?? null;
+  return list.find(c => c.id === id || (c as any).studentId === id || (c as any).regNo === id) ?? list[0] ?? null;
 }
 
 // --- Opportunity Operations ---
@@ -478,7 +550,25 @@ export async function getApplications(companyId?: string): Promise<Application[]
     missingSkills: a.missingSkills || []
   }));
 
-  const allApps = [...backendApps, ...demoApplications, ...customApps];
+  const enrichedDemoApps: Application[] = demoApplications.map(d => {
+    const cand = demoCandidates.find(c => c.id === d.studentId);
+    const opp = demoOpportunities.find(o => o.id === d.opportunityId);
+    return {
+      ...d,
+      studentName: d.studentName || cand?.name || 'HIERO Candidate',
+      email: d.email || cand?.email,
+      phone: d.phone || cand?.phone,
+      cgpa: d.cgpa || cand?.cgpa || cand?.education?.[0]?.cgpa,
+      department: d.department || cand?.education?.[0]?.field || 'Computer Science',
+      campusName: d.campusName || cand?.education?.[0]?.institution || 'IIT Bombay',
+      campusLocation: d.campusLocation || cand?.location || 'India',
+      jobTitle: d.jobTitle || opp?.title || 'Software Engineer',
+      source: 'hiero',
+      resumeUrl: d.resumeUrl || cand?.resumeUrl || '/resumes/Jaswanth_Kumar_Resume_Master.pdf',
+    };
+  });
+
+  const allApps = [...backendApps, ...enrichedDemoApps, ...bridgeApplications, ...customApps];
   const appMap = new Map<string, Application>();
   const keyOf = (a: Application) => a.id || `${a.studentId}::${a.opportunityId}`;
   allApps.forEach(a => {
@@ -490,27 +580,7 @@ export async function getApplications(companyId?: string): Promise<Application[]
   });
 
   const merged = Array.from(appMap.values());
-  const fromCampus = merged.filter(a => a.source === 'bridge' || Boolean(a.campusName));
-  const recruiterOwned = merged.filter(a =>
-    a.status === 'shortlisted' || a.status === 'selected' || a.status === 'interview'
-  );
-  const pool = fromCampus.length > 0
-    ? Array.from(new Map([...fromCampus, ...recruiterOwned].map(a => [a.id, a])).values())
-    : merged;
-  if (!companyId) return pool;
-
-  const filtered = pool.filter(a =>
-    companyOppIds.includes(a.opportunityId) ||
-    a.companyId === companyId ||
-    a.companyName ||
-    a.campusName ||
-    a.source === 'bridge' ||
-    a.id?.startsWith('app-') ||
-    a.opportunityId?.startsWith('app-') ||
-    a.opportunityId?.startsWith('opp-') ||
-    a.status === 'applied'
-  );
-  return filtered.length > 0 ? filtered : pool;
+  return merged;
 }
 
 export async function getApplicationsByOpportunity(opportunityId: string): Promise<Application[]> {

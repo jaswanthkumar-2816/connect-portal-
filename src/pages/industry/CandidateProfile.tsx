@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, MapPin, Mail, Phone, GraduationCap, Award, ExternalLink, Briefcase, FolderGit2, FileText, Sparkles, CheckCircle2, Download, Eye } from 'lucide-react';
 import Card from '../../components/ui/Card';
 import SkillBar from '../../components/skills/SkillBar';
+import PdfResumeModal from '../../components/ui/PdfResumeModal';
 import { getCandidateById } from '../../services/hiroService';
 import type { Candidate } from '../../types';
 
@@ -12,6 +13,7 @@ export default function CandidateProfile() {
   const [candidate, setCandidate] = useState<Candidate | null>(null);
   const [loading, setLoading] = useState(true);
   const [visible, setVisible] = useState(false);
+  const [isResumeModalOpen, setIsResumeModalOpen] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -39,6 +41,13 @@ export default function CandidateProfile() {
 
   return (
     <div className="max-w-4xl space-y-6">
+      {/* In-page High-Fidelity PDF Resume Modal */}
+      <PdfResumeModal
+        isOpen={isResumeModalOpen}
+        onClose={() => setIsResumeModalOpen(false)}
+        candidate={candidate}
+      />
+
       <button
         onClick={() => navigate(-1)}
         className={`flex items-center gap-2 text-sm text-[var(--color-muted)] hover:text-[var(--color-text)] font-bold transition-all duration-500 ${visible ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4'}`}
@@ -93,22 +102,20 @@ export default function CandidateProfile() {
           </div>
 
           <div className="flex items-center gap-2 w-full sm:w-auto">
-            <a
-              href={candidate.resumeUrl || '/resumes/Jaswanth_Kumar_Resume_Master.pdf'}
-              target="_blank"
-              rel="noreferrer"
-              className="flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-bold bg-[#06c006] text-black hover:bg-[#06c006]/90 transition-all flex items-center justify-center gap-1.5 shadow-md"
+            <button
+              onClick={() => setIsResumeModalOpen(true)}
+              className="flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-bold bg-[#06c006] text-black hover:bg-[#06c006]/90 transition-all flex items-center justify-center gap-1.5 shadow-md cursor-pointer"
             >
               <Eye size={14} /> View Resume File
-            </a>
-            <a
-              href={candidate.resumeUrl || '/resumes/Jaswanth_Kumar_Resume_Master.pdf'}
-              download={resumeFileName}
-              className="px-3 py-2 rounded-xl text-xs font-bold border text-[var(--color-text)] flex items-center justify-center gap-1.5"
+            </button>
+            <button
+              onClick={() => setIsResumeModalOpen(true)}
+              className="px-3 py-2 rounded-xl text-xs font-bold border text-[var(--color-text)] flex items-center justify-center gap-1.5 cursor-pointer"
               style={{ background: 'var(--color-surface-2)', borderColor: 'var(--color-border)' }}
+              title="Download / Print PDF"
             >
               <Download size={14} />
-            </a>
+            </button>
           </div>
         </div>
       </Card>
@@ -204,7 +211,7 @@ export default function CandidateProfile() {
                 <div className="font-bold text-sm text-[var(--color-text)]">{proj.title}</div>
                 <p className="text-xs text-[var(--color-muted)] font-medium leading-relaxed">{proj.description}</p>
                 <div className="flex flex-wrap gap-1.5 pt-1">
-                  {proj.skills.map(s => (
+                  {(proj.skills || (proj.tech ? proj.tech.split(',').map(s => s.trim()) : [])).map(s => (
                     <span key={s} className="tag-skill-green text-[10px] px-2 py-0.5 rounded-md font-semibold">
                       {s}
                     </span>

@@ -84,9 +84,11 @@ export interface CandidateSkill {
 
 export interface CandidateProject {
   title: string;
-  description: string;
-  skills: string[];
+  description?: string;
+  skills?: string[];
   url?: string;
+  tech?: string;
+  link?: string;
 }
 
 export interface CandidateEducation {
@@ -157,6 +159,7 @@ export type ApplicationStatus =
 export interface Application {
   id: string;
   opportunityId: string;
+  oppId?: string;
   studentId: string;
   companyId?: string;
   companyName?: string;
@@ -178,8 +181,16 @@ export interface Application {
   phone?: string;
   jobTitle?: string;
   source?: 'bridge' | 'hiero' | 'demo';
-  projects?: { title: string; description?: string; skills?: string[]; tech?: string }[];
+  projects?: { title: string; description?: string; skills?: string[]; tech?: string; link?: string; url?: string }[];
   selectionNotifiedAt?: string;
+  student_id?: string;
+  student_name?: string;
+  opportunity_id?: string;
+  match_score?: number;
+  applied_at?: string;
+  resume_url?: string;
+  campus_name?: string;
+  [key: string]: any;
 }
 
 // --- Shortlist ---

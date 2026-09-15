@@ -14,13 +14,12 @@ const navItems = [
   { to: '/industry/create', icon: PlusCircle, label: 'Create Opportunity' },
   { to: '/industry/applications', icon: FileText, label: 'Applications' },
   { to: '/industry/shortlisted', icon: Star, label: 'Shortlisted' },
-  { to: '/industry/pipeline', icon: GitBranch, label: 'Pipeline' },
   { to: '/industry/company', icon: Building2, label: 'Company Profile' },
   { to: '/industry/settings', icon: Settings, label: 'Settings' },
 ];
 
-const SECTION_1 = navItems.slice(0, 6);
-const SECTION_2 = navItems.slice(6);
+const SECTION_1 = navItems.slice(0, 5);
+const SECTION_2 = navItems.slice(5);
 
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
