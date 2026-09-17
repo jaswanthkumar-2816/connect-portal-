@@ -1,10 +1,38 @@
+import { useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
 import BackgroundAnimation from '../ui/BackgroundAnimation';
+import OrbitWidget from '../orbit/OrbitWidget';
+import OrbitCommandPalette from '../orbit/OrbitCommandPalette';
+import { useOrbitStore } from '../../store/orbitStore';
 
 export default function DashboardLayout() {
   const location = useLocation();
+  const { toggleOpen, openCommandPalette, isCommandPaletteOpen, closeCommandPalette } = useOrbitStore();
+
+  // Register global keyboard shortcuts: Ctrl+K / Cmd+K and Ctrl+O / Cmd+O
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Check if Ctrl or Meta is pressed
+      const isModifier = e.ctrlKey || e.metaKey;
+
+      if (isModifier && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault();
+        openCommandPalette();
+      } else if (isModifier && (e.key === 'o' || e.key === 'O')) {
+        e.preventDefault();
+        toggleOpen();
+      } else if (e.key === 'Escape' && isCommandPaletteOpen) {
+        e.preventDefault();
+        closeCommandPalette();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [openCommandPalette, toggleOpen, isCommandPaletteOpen, closeCommandPalette]);
+
   return (
     <div className="min-h-screen transition-colors duration-300 relative" style={{ background: 'var(--color-bg)' }}>
       {/* Animated Background */}
@@ -20,6 +48,10 @@ export default function DashboardLayout() {
           </div>
         </main>
       </div>
+
+      {/* Orbit AI Autonomous Copilot System */}
+      <OrbitWidget />
+      <OrbitCommandPalette />
     </div>
   );
 }

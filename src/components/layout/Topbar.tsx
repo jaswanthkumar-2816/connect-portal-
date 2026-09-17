@@ -1,6 +1,7 @@
 import { Bell, Search, Command, Sun, Moon } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { useThemeStore } from '../../store/themeStore';
+import { useOrbitStore } from '../../store/orbitStore';
 import { demoCompanies } from '../../data/demo';
 import { useLocation } from 'react-router-dom';
 
@@ -23,6 +24,7 @@ export default function Topbar() {
   const pageTitle = pageTitles[location.pathname] || 'Industry Portal';
   const initials = user?.name?.split(' ').map(n => n[0]).join('').slice(0, 2) || 'U';
   const { theme, toggleTheme } = useThemeStore();
+  const { openCommandPalette } = useOrbitStore();
 
   return (
     <header className="topbar sticky top-0 z-30 h-16 flex items-center px-4 lg:px-8">
@@ -33,12 +35,16 @@ export default function Topbar() {
           <p className="text-[11px] text-[var(--color-muted)] -mt-0.5 font-semibold">{companyName}</p>
         </div>
 
-        {/* Search */}
+        {/* Search / Command Palette Trigger */}
         <div
-          className="topbar-search flex items-center gap-2 rounded-xl px-3 py-2 w-64 transition-all duration-200 cursor-pointer group"
+          onClick={openCommandPalette}
+          className="topbar-search flex items-center gap-2 rounded-xl px-3 py-2 w-64 transition-all duration-200 cursor-pointer group hover:border-[#06c006]/50"
+          title="Search or command anything (Ctrl+K)"
         >
-          <Search size={14} className="text-[var(--color-muted)] group-hover:text-[var(--color-text-dim)] transition-colors flex-shrink-0" />
-          <span className="text-sm text-[var(--color-muted)] flex-1 group-hover:text-[var(--color-text-dim)] transition-colors">Search...</span>
+          <Search size={14} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent)] transition-colors flex-shrink-0" />
+          <span className="text-sm text-[var(--color-muted)] flex-1 group-hover:text-[var(--color-text)] transition-colors truncate">
+            Search or ask Orbit...
+          </span>
           <div className="flex items-center gap-0.5 rounded-md px-1.5 py-0.5" style={{ background: 'var(--color-surface-2)' }}>
             <Command size={9} className="text-[var(--color-muted)]" />
             <span className="text-[10px] text-[var(--color-muted)] font-medium">K</span>
