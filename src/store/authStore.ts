@@ -1,135 +1,215 @@
 import { create } from 'zustand';
 import type { User } from '../types';
-import { demoUser } from '../data/demo';
+import { GATEWAY_URL } from '../lib/endpoints';
+
+const TOKEN_KEY = 'hc_token';
+const USER_KEY = 'hc_user';
+
+// Read outside the store so services can attach the token without importing
+// the store and creating a cycle.
+export function getAuthToken(): string | null {
+  try {
+    return localStorage.getItem(TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function readStoredUser(): User | null {
+  try {
+    const raw = localStorage.getItem(USER_KEY);
+    return raw ? (JSON.parse(raw) as User) : null;
+  } catch {
+    return null;
+  }
+}
+
+function persist(token: string, user: User) {
+  try {
+    localStorage.setItem(TOKEN_KEY, token);
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+    // Sweep the old passwordless flag. Nothing reads it any more, but a key
+    // called hc_auth=true sitting in storage invites someone to trust it again.
+    localStorage.removeItem('hc_auth');
+  } catch {
+    // Private browsing or blocked storage: the session still works in memory.
+  }
+}
+
+function clearStored() {
+  try {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+    // Left over from the old passwordless sign-in. Remove it so a stale flag
+    // can never look like a session.
+    localStorage.removeItem('hc_auth');
+  } catch {
+    // Nothing to do.
+  }
+}
+
+// The server owns identity. companyId comes from the signed token, never from
+// anything the browser typed, which is what the old sign-in got wrong.
+function toUser(payload: any): User {
+  return {
+    id: String(payload?.id || ''),
+    name: String(payload?.name || ''),
+    email: String(payload?.email || ''),
+    role: 'industry',
+    companyId: String(payload?.companyId || ''),
+    companyName: payload?.companyName ? String(payload.companyName) : undefined,
+    designation: String(payload?.designation || 'HR'),
+    phone: String(payload?.phone || ''),
+  };
+}
 
 interface AuthState {
   user: User | null;
+  token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, _password: string) => Promise<boolean>;
+  /** True until the stored token has been checked against the server. */
+  isRestoring: boolean;
+  mustChangePassword: boolean;
+  error: string | null;
+  login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
-  register: (data: { companyName?: string; email: string; password: string; [key: string]: any }) => Promise<boolean>;
+  restore: () => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<boolean>;
 }
 
-function formatNameFromEmail(email: string): string {
-  if (!email) return 'Recruiter';
-  const prefix = email.split('@')[0];
-  const parts = prefix.split(/[._-]/);
-  return parts
-    .filter(Boolean)
-    .map(p => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase())
-    .join(' ');
-}
+const storedToken = getAuthToken();
+const storedUser = readStoredUser();
 
-function formatCompanyFromEmail(email: string): string {
-  if (!email) return 'TechNova Inc.';
-  const domain = email.split('@')[1] || '';
-  const comp = domain.split('.')[0];
-  if (!comp || comp === 'gmail' || comp === 'yahoo' || comp === 'outlook' || comp === 'hotmail' || comp === 'company') {
-    return 'TechNova Inc.';
-  }
-  return comp.charAt(0).toUpperCase() + comp.slice(1).toLowerCase() + ' Corp';
-}
-
-const savedAuth = localStorage.getItem('hc_auth') === 'true';
-const savedUserStr = localStorage.getItem('hc_user');
-const savedUser: User | null = savedUserStr ? JSON.parse(savedUserStr) : savedAuth ? demoUser : null;
-
-export const useAuthStore = create<AuthState>((set) => ({
-  user: savedUser,
-  isAuthenticated: !!savedUser || savedAuth,
+export const useAuthStore = create<AuthState>((set, get) => ({
+  user: storedUser,
+  token: storedToken,
+  // Optimistic: the stored token is treated as good until restore() says
+  // otherwise, so a reload does not flash the login page.
+  isAuthenticated: Boolean(storedToken && storedUser),
   isLoading: false,
+  isRestoring: Boolean(storedToken),
+  mustChangePassword: false,
+  error: null,
 
-  login: async (email: string, _password: string) => {
-    set({ isLoading: true });
-    await new Promise(r => setTimeout(r, 600));
-    if (email) {
-      const isDemo = email.toLowerCase().includes('technova') || email === demoUser.email;
-      const userName = isDemo ? demoUser.name : formatNameFromEmail(email);
-      const companyName = isDemo ? 'TechNova' : formatCompanyFromEmail(email);
-      const companyId = isDemo ? 'c1' : `c-${email.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}`;
+  login: async (email, password) => {
+    set({ isLoading: true, error: null });
+    try {
+      const res = await fetch(`${GATEWAY_URL}/api/connect/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+        body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
+      });
+      const data = await res.json().catch(() => null);
 
-      const userObj: User = {
-        id: isDemo ? demoUser.id : `u-${Date.now()}`,
-        name: userName,
-        email: email,
-        role: 'industry',
-        companyId: companyId,
-        designation: isDemo ? demoUser.designation : 'Recruiting Lead',
-        phone: isDemo ? demoUser.phone : '+91 98765 43210',
-      };
-      (userObj as any).companyName = companyName;
+      if (!res.ok || !data?.success || !data?.token) {
+        set({
+          isLoading: false,
+          error: data?.error || 'Could not sign in. Try again.',
+          isAuthenticated: false,
+          user: null,
+          token: null,
+        });
+        return false;
+      }
 
-      set({ user: userObj, isAuthenticated: true, isLoading: false });
-      localStorage.setItem('hc_auth', 'true');
-      localStorage.setItem('hc_user', JSON.stringify(userObj));
+      const user = toUser(data.user);
+      persist(data.token, user);
+      set({
+        user,
+        token: data.token,
+        isAuthenticated: true,
+        isRestoring: false,
+        isLoading: false,
+        mustChangePassword: Boolean(data.user?.mustChangePassword),
+        error: null,
+      });
       return true;
+    } catch {
+      set({ isLoading: false, error: 'Cannot reach the HIERO gateway. Is it running?' });
+      return false;
     }
-    set({ isLoading: false });
-    return false;
   },
 
   logout: () => {
-    set({ user: null, isAuthenticated: false });
-    localStorage.removeItem('hc_auth');
-    localStorage.removeItem('hc_user');
+    clearStored();
+    set({
+      user: null,
+      token: null,
+      isAuthenticated: false,
+      isRestoring: false,
+      mustChangePassword: false,
+      error: null,
+    });
   },
 
-  register: async (data) => {
-    set({ isLoading: true });
-    await new Promise(r => setTimeout(r, 800));
-
-    const userName = data.recruiterName || formatNameFromEmail(data.email) || 'Recruiter';
-    const companyName = data.companyName || formatCompanyFromEmail(data.email) || 'New Enterprise';
-    const newCompanyId = `c-${Date.now()}`;
-
-    const newUser: User = {
-      id: `u-${Date.now()}`,
-      name: userName,
-      email: data.email,
-      role: 'industry',
-      companyId: newCompanyId,
-      designation: data.designation || 'HR Manager',
-      phone: data.phone || '+91 98765 43210',
-    };
-    (newUser as any).companyName = companyName;
-
-    // Save custom registered company into localStorage for company profile resolution
-    const customCompany = {
-      id: newCompanyId,
-      name: companyName,
-      email: data.email,
-      industry: data.industry || 'Information Technology',
-      size: data.size || '11-50',
-      location: data.location || 'Bangalore, India',
-      website: data.website || `https://${companyName.toLowerCase().replace(/[^a-z0-9]/g, '')}.com`,
-      description: `${companyName} is committed to hiring top verified talent and accelerating campus recruitment.`,
-      recruiter: {
-        name: userName,
-        designation: data.designation || 'HR Manager',
-        phone: data.phone || '+91 98765 43210',
-        email: data.email,
-      },
-      createdAt: new Date().toISOString().split('T')[0],
-    };
-
-    try {
-      const storedStr = localStorage.getItem('hc_custom_companies') || '[]';
-      const customList = JSON.parse(storedStr);
-      customList.push(customCompany);
-      localStorage.setItem('hc_custom_companies', JSON.stringify(customList));
-    } catch {
-      // ignore JSON parse errors
+  // Called once on app start. A token in localStorage proves nothing on its
+  // own — an account can be disabled, or the token revoked or expired — so it
+  // is checked against the server before the portal trusts it.
+  restore: async () => {
+    const token = get().token;
+    if (!token) {
+      set({ isRestoring: false, isAuthenticated: false });
+      return;
     }
+    try {
+      const res = await fetch(`${GATEWAY_URL}/api/connect/auth/me`, {
+        headers: { Authorization: `Bearer ${token}`, 'ngrok-skip-browser-warning': 'true' },
+      });
+      const data = await res.json().catch(() => null);
 
-    set({
-      user: newUser,
-      isAuthenticated: true,
-      isLoading: false,
-    });
+      if (!res.ok || !data?.success) {
+        clearStored();
+        set({ user: null, token: null, isAuthenticated: false, isRestoring: false });
+        return;
+      }
 
-    localStorage.setItem('hc_auth', 'true');
-    localStorage.setItem('hc_user', JSON.stringify(newUser));
-    return true;
+      const user = toUser(data.user);
+      persist(token, user);
+      set({
+        user,
+        isAuthenticated: true,
+        isRestoring: false,
+        mustChangePassword: Boolean(data.user?.mustChangePassword),
+      });
+    } catch {
+      // The gateway is unreachable. Keep the session rather than throwing the
+      // recruiter out over a dropped network; the next API call will fail
+      // visibly anyway.
+      set({ isRestoring: false });
+    }
+  },
+
+  changePassword: async (currentPassword, newPassword) => {
+    const token = get().token;
+    if (!token) return false;
+    set({ isLoading: true, error: null });
+    try {
+      const res = await fetch(`${GATEWAY_URL}/api/connect/auth/change-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, 'ngrok-skip-browser-warning': 'true' },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.success) {
+        set({ isLoading: false, error: data?.error || 'Could not change the password.' });
+        return false;
+      }
+
+      const user = toUser(data.user);
+      persist(data.token, user);
+      set({
+        user,
+        token: data.token,
+        isLoading: false,
+        mustChangePassword: false,
+        error: null,
+      });
+      return true;
+    } catch {
+      set({ isLoading: false, error: 'Cannot reach the HIERO gateway.' });
+      return false;
+    }
   },
 }));

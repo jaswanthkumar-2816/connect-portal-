@@ -4,7 +4,7 @@ import { Plus, MapPin, Clock, Briefcase, ChevronRight } from 'lucide-react';
 import { getOpportunities } from '../../services/hiroService';
 import { useAuthStore } from '../../store/authStore';
 import type { Opportunity } from '../../types';
-import { formatDate } from '../../lib/utils';
+import { formatDate, getOpportunityTypeLabel, getOpportunityTypeTagClass } from '../../lib/utils';
 
 const TABS = [
   { id: 'active', label: 'Active', dot: 'bg-[#06c006]' },
@@ -49,12 +49,12 @@ export default function Jobs() {
       <div className="flex items-center justify-between animate-slide-up">
         <div>
           <h1 className="text-2xl font-black text-[var(--color-text)]" style={{ fontFamily: 'Outfit, sans-serif' }}>
-            Jobs & Internships
+            Jobs
           </h1>
-          <p className="text-sm text-[var(--color-muted)] mt-1 font-medium">{opportunities.length} total opportunities</p>
+          <p className="text-sm text-[var(--color-muted)] mt-1 font-medium">{opportunities.length} posted drive{opportunities.length === 1 ? '' : 's'}</p>
         </div>
         <Link to="/industry/create" className="hiero-btn-primary text-sm font-bold shadow-[0_0_20px_rgba(6,192,6,0.2)]">
-          <Plus size={16} /> Create Opportunity
+          <Plus size={16} /> Post opportunity
         </Link>
       </div>
 
@@ -91,10 +91,10 @@ export default function Jobs() {
           style={{ background: 'var(--color-surface-3)', borderColor: 'var(--color-border)' }}
         >
           <Briefcase size={36} className="text-[var(--color-muted)] mb-3 opacity-40" />
-          <p className="text-sm font-bold text-[var(--color-muted)]">No {activeTab} opportunities</p>
-          <p className="text-xs text-[var(--color-muted)] mt-1 mb-4 font-medium">Create a new opportunity to get started.</p>
+          <p className="text-sm font-bold text-[var(--color-muted)]">No {activeTab} drives</p>
+          <p className="text-xs text-[var(--color-muted)] mt-1 mb-4 font-medium">Post an internship, job, project, or apprenticeship.</p>
           <Link to="/industry/create" className="hiero-btn-primary text-sm font-bold">
-            <Plus size={15} /> Create Opportunity
+            <Plus size={15} /> Post opportunity
           </Link>
         </div>
       ) : (
@@ -113,10 +113,8 @@ export default function Jobs() {
                     <h3 className="text-base font-bold text-[var(--color-text)] group-hover:text-[#06c006] transition-colors" style={{ fontFamily: 'Outfit, sans-serif' }}>
                       {job.title}
                     </h3>
-                    <span className={`text-[10px] font-bold px-2.5 py-1 rounded-lg uppercase tracking-wide ${
-                      job.type === 'internship' ? 'tag-skill-purple' : 'tag-skill-blue'
-                    }`}>
-                      {job.type === 'internship' ? 'Internship' : 'Full-time'}
+                    <span className={`text-[10px] font-bold px-2.5 py-1 rounded-lg uppercase tracking-wide ${getOpportunityTypeTagClass(job.type)}`}>
+                      {getOpportunityTypeLabel(job.type)}
                     </span>
                     {job.status === 'draft' && (
                       <span className="text-[10px] font-bold px-2.5 py-1 rounded-lg uppercase tracking-wide bg-amber-500/10 text-amber-500 border border-amber-500/20">

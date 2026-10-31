@@ -5,7 +5,7 @@ import Card from '../../components/ui/Card';
 import SkillTag from '../../components/skills/SkillTag';
 import { getOpportunityById } from '../../services/hiroService';
 import type { Opportunity } from '../../types';
-import { formatDate } from '../../lib/utils';
+import { formatDate, getOpportunityTypeLabel } from '../../lib/utils';
 
 export default function JobDetails() {
   const { id } = useParams();
@@ -43,16 +43,16 @@ export default function JobDetails() {
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-4 text-sm text-[var(--color-muted)] font-semibold">
-            <span className="flex items-center gap-1"><Briefcase size={14} />{job.type === 'internship' ? 'Internship' : 'Full-time'}</span>
+            <span className="flex items-center gap-1"><Briefcase size={14} />{getOpportunityTypeLabel(job.type)}</span>
             <span className="flex items-center gap-1"><MapPin size={14} />{job.location}</span>
             <span className="flex items-center gap-1"><Clock size={14} />Deadline: {formatDate(job.deadline)}</span>
           </div>
         </div>
         <Link
-          to={`/industry/matches/${encodeURIComponent(job.id)}`}
+          to={`/industry/applications?job=${encodeURIComponent(job.id)}`}
           className="hiero-btn-primary text-sm font-bold shadow-[0_0_20px_rgba(6,192,6,0.2)] inline-flex items-center gap-2"
         >
-          <Eye size={16} /> View Matches
+          <Eye size={16} /> View Inbox
         </Link>
       </div>
 

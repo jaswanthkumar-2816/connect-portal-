@@ -4,8 +4,9 @@ import { ArrowLeft, MapPin, Mail, Phone, GraduationCap, Award, ExternalLink, Bri
 import Card from '../../components/ui/Card';
 import SkillBar from '../../components/skills/SkillBar';
 import PdfResumeModal from '../../components/ui/PdfResumeModal';
-import { getCandidateById } from '../../services/hiroService';
-import type { Candidate } from '../../types';
+import { getCandidateById, getPracticeRecord } from '../../services/hiroService';
+import PracticeRecord from '../../components/candidates/PracticeRecord';
+import type { Candidate, PracticeRecord as PracticeRecordData } from '../../types';
 
 export default function CandidateProfile() {
   const { id } = useParams();
@@ -14,6 +15,8 @@ export default function CandidateProfile() {
   const [loading, setLoading] = useState(true);
   const [visible, setVisible] = useState(false);
   const [isResumeModalOpen, setIsResumeModalOpen] = useState(false);
+  const [practice, setPractice] = useState<PracticeRecordData | null>(null);
+  const [practiceLoading, setPracticeLoading] = useState(true);
 
   useEffect(() => {
     if (id) {
@@ -23,6 +26,25 @@ export default function CandidateProfile() {
         setTimeout(() => setVisible(true), 100);
       });
     }
+  }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    setPracticeLoading(true);
+    getPracticeRecord(id)
+      .then(record => {
+        if (!cancelled) setPractice(record);
+      })
+      .catch(() => {
+        if (!cancelled) setPractice(null);
+      })
+      .finally(() => {
+        if (!cancelled) setPracticeLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
   if (loading) {
@@ -154,6 +176,11 @@ export default function CandidateProfile() {
           <div className="text-[10px] text-[var(--color-muted)] font-medium mt-0.5">Graduating Class</div>
         </Card>
       </div>
+
+      {/* Practice record — what the student did on HIERO before applying */}
+      <Card className={`p-6 hiero-hover-glow transition-all duration-600 delay-75 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+        <PracticeRecord record={practice} loading={practiceLoading} variant="page" />
+      </Card>
 
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Skills & Competency */}

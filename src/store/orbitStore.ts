@@ -6,6 +6,7 @@ import {
   type OrbitResponse,
 } from '../services/orbitService';
 import { useAuthStore } from './authStore';
+import { useInboxFilterStore } from './inboxFilterStore';
 
 export interface OrbitMessage {
   id: string;
@@ -191,6 +192,10 @@ export const useOrbitStore = create<OrbitState>((set, get) => ({
 
       if (res.navigatePath && navigate) {
         navigate(res.navigatePath);
+        // When Orbit applies an Inbox filter, close the chat so the page is visible
+        if (res.navigatePath.includes('/applications') && useInboxFilterStore.getState().criteria) {
+          set({ isOpen: false, isCommandPaletteOpen: false });
+        }
       }
     } catch (err: any) {
       const errorMsg: OrbitMessage = {
@@ -209,7 +214,18 @@ export const useOrbitStore = create<OrbitState>((set, get) => ({
   },
 
   executeActionCard: async (payload, navigate) => {
-    if (payload.type === 'NAVIGATE' && payload.path && navigate) {
+    if (payload.type === 'APPLY_INBOX_FILTER') {
+      const prompt = payload.data?.prompt || payload.data?.criteria?.sourcePrompt;
+      if (prompt) useInboxFilterStore.getState().applyFromPrompt(String(prompt));
+      else if (payload.data?.criteria) useInboxFilterStore.getState().setCriteria(payload.data.criteria);
+      if (payload.path && navigate) navigate(payload.path);
+      set({ isOpen: false, isCommandPaletteOpen: false });
+      if (get().soundEnabled) orbitAudio.playChime('action');
+    } else if (payload.type === 'CLEAR_INBOX_FILTER') {
+      useInboxFilterStore.getState().clear();
+      if (payload.path && navigate) navigate(payload.path);
+      if (get().soundEnabled) orbitAudio.playChime('action');
+    } else if (payload.type === 'NAVIGATE' && payload.path && navigate) {
       navigate(payload.path);
       if (get().soundEnabled) orbitAudio.playChime('action');
     } else if (payload.type === 'COMMAND' && payload.data) {

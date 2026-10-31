@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
 
@@ -29,14 +29,33 @@ import Settings from './pages/industry/Settings';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore(s => s.isAuthenticated);
-  const hasAuth = isAuthenticated || localStorage.getItem('hc_auth') === 'true';
-  if (!hasAuth) return <Navigate to="/login" replace />;
+  const isRestoring = useAuthStore(s => s.isRestoring);
+
+  // Wait for the stored token to be checked against the server. Deciding
+  // before that finishes would bounce a signed-in recruiter to /login on
+  // every reload.
+  if (isRestoring) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin h-8 w-8 border-2 border-[#06c006] border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
   return <>{children}</>;
 }
 
 export default function App() {
   const [splashDone, setSplashDone] = useState(false);
   const handleSplashDone = useCallback(() => setSplashDone(true), []);
+  const restore = useAuthStore(s => s.restore);
+
+  // A token in localStorage proves nothing on its own: the account may have
+  // been disabled or the token expired. Check it with the server on start.
+  useEffect(() => {
+    restore();
+  }, [restore]);
 
   if (!splashDone) {
     return <SplashScreen onDone={handleSplashDone} />;
@@ -59,7 +78,8 @@ export default function App() {
             </ProtectedRoute>
           }
         >
-          <Route index element={<Dashboard />} />
+          <Route index element={<Navigate to="applications" replace />} />
+          <Route path="dashboard" element={<Dashboard />} />
           <Route path="company" element={<CompanyProfile />} />
           <Route path="jobs" element={<Jobs />} />
           <Route path="jobs/:id" element={<JobDetails />} />

@@ -11,6 +11,7 @@ export interface User {
   email: string;
   role: UserRole;
   companyId: string;
+  companyName?: string;
   designation: string;
   phone: string;
 }
@@ -40,8 +41,8 @@ export interface RecruiterInfo {
   email: string;
 }
 
-// --- Opportunities (Jobs & Internships) ---
-export type OpportunityType = 'full-time' | 'internship';
+// --- Opportunities (Jobs, Internships, Projects, Apprenticeships) ---
+export type OpportunityType = 'full-time' | 'internship' | 'project' | 'apprenticeship';
 export type WorkMode = 'on-site' | 'hybrid' | 'remote';
 export type OpportunityStatus = 'active' | 'draft' | 'closed';
 
@@ -165,7 +166,8 @@ export interface Application {
   companyName?: string;
   studentName?: string;
   resumeUrl?: string;
-  matchScore: number;
+  matchScore?: number;
+  hieroVerified?: boolean;
   matchingSkills: { name: string; score: number }[];
   missingSkills?: { name: string }[];
   skillsMatch?: { matched: string[]; missing: string[] };
@@ -182,7 +184,17 @@ export interface Application {
   jobTitle?: string;
   source?: 'bridge' | 'hiero' | 'demo';
   projects?: { title: string; description?: string; skills?: string[]; tech?: string; link?: string; url?: string }[];
+  portfolioUrl?: string;
   selectionNotifiedAt?: string;
+  /** Stamped by the gateway when a recruiter mail actually goes out. */
+  interviewMailSentAt?: string;
+  rejectionNotifiedAt?: string;
+  lastContactedAt?: string;
+  lastMailSubject?: string;
+  /** The slot offered in the interview invitation, if one was given. */
+  interviewAt?: string;
+  /** Original filename of the uploaded resume. */
+  resumeName?: string;
   student_id?: string;
   student_name?: string;
   opportunity_id?: string;
@@ -231,4 +243,43 @@ export interface MatchResult {
   matchExplanation: string;
   strengths: string[];
   gaps: string[];
+}
+
+// --- Practice Record (HIERO interview sessions a student ran before applying) ---
+// Mirrors the fields HIERO's InterviewSession model already stores: scorecard /
+// evaluation scores out of 10, the skills each session evaluated, and what the
+// student was told to improve. Scores are kept on HIERO's 0-10 scale.
+export interface PracticeSkillTrend {
+  name: string;
+  first: number;
+  latest: number;
+}
+
+export interface PracticeAttempt {
+  sessionId: string;
+  attempt: number;
+  role: string;
+  overallScore: number;
+  technicalScore?: number;
+  communicationScore?: number;
+  problemSolvingScore?: number;
+  completedAt: string;
+  skills: { name: string; score: number }[];
+  areasToImprove: string[];
+}
+
+export interface PracticeRecord {
+  studentId: string;
+  role: string;
+  attempts: PracticeAttempt[];
+  firstScore: number;
+  latestScore: number;
+  bestScore: number;
+  firstAt: string;
+  latestAt: string;
+  skills: PracticeSkillTrend[];
+  // Areas flagged on an early attempt that no longer appear on the latest one.
+  resolved: string[];
+  // Still flagged on the most recent attempt.
+  outstanding: string[];
 }

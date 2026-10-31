@@ -11,12 +11,9 @@ export default function DashboardLayout() {
   const location = useLocation();
   const { toggleOpen, openCommandPalette, isCommandPaletteOpen, closeCommandPalette } = useOrbitStore();
 
-  // Register global keyboard shortcuts: Ctrl+K / Cmd+K and Ctrl+O / Cmd+O
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Check if Ctrl or Meta is pressed
       const isModifier = e.ctrlKey || e.metaKey;
-
       if (isModifier && (e.key === 'k' || e.key === 'K')) {
         e.preventDefault();
         openCommandPalette();
@@ -35,11 +32,8 @@ export default function DashboardLayout() {
 
   return (
     <div className="min-h-screen transition-colors duration-300 relative" style={{ background: 'var(--color-bg)' }}>
-      {/* Animated Background */}
       <BackgroundAnimation />
-
       <Sidebar />
-
       <div className="lg:ml-[240px] min-h-screen flex flex-col transition-all duration-300 relative">
         <Topbar />
         <main className="flex-1 p-5 lg:p-8 pb-24 lg:pb-10">
@@ -49,7 +43,6 @@ export default function DashboardLayout() {
         </main>
       </div>
 
-      {/* Orbit AI Autonomous Copilot System */}
       <OrbitWidget />
       <OrbitCommandPalette />
     </div>

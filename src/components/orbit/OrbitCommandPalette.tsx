@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Search,
-  Bot,
   Sparkles,
   LayoutDashboard,
   Briefcase,
@@ -22,6 +21,7 @@ import {
 } from 'lucide-react';
 import { useOrbitStore } from '../../store/orbitStore';
 import { useThemeStore } from '../../store/themeStore';
+import OrbitLogo from './OrbitLogo';
 
 interface CommandItem {
   id: string;
@@ -303,9 +303,7 @@ export default function OrbitCommandPalette() {
 
         {/* Input Bar */}
         <div className="flex items-center gap-3 px-4 py-3.5 border-b border-white/10 bg-black/40">
-          <div className="w-8 h-8 rounded-lg bg-[#06c006]/15 border border-[#06c006]/30 flex items-center justify-center text-[#06c006] flex-shrink-0">
-            <Bot size={18} />
-          </div>
+          <OrbitLogo size={32} rounded="lg" />
 
           <input
             ref={inputRef}
@@ -315,7 +313,7 @@ export default function OrbitCommandPalette() {
               setQuery(e.target.value);
               setSelectedIndex(0);
             }}
-            placeholder="Type a command or ask Orbit AI anything (e.g. 'Shortlist Jaswanth', 'Go to jobs', 'Find Python talent')..."
+            placeholder="Type a command or ask Orbit anything (e.g. 'Shortlist Jaswanth', 'Go to jobs', 'Find Python talent')..."
             className="flex-1 bg-transparent text-sm text-white placeholder-white/40 focus:outline-none font-medium"
           />
 
@@ -356,7 +354,7 @@ export default function OrbitCommandPalette() {
         <div className="max-h-[380px] overflow-y-auto p-2 space-y-1 custom-scrollbar">
           {filtered.length === 0 ? (
             <div className="py-12 text-center text-white/40">
-              <Bot size={32} className="mx-auto mb-2 text-white/20" />
+              <OrbitLogo size={48} className="mx-auto mb-3 opacity-90" />
               <p className="text-sm font-semibold text-white/60">No direct static shortcuts found</p>
               <p className="text-xs mt-1">Press <strong>Enter</strong> to run "{query}" through Orbit's Autonomous AI Engine</p>
             </div>

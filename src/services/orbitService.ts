@@ -20,6 +20,10 @@ import {
 import { getDynamicSuggestedPrompts, getDynamicPortalContext } from './dynamicFeatureService';
 import { useAuthStore } from '../store/authStore';
 import { useThemeStore } from '../store/themeStore';
+import {
+  applicationMatchesCriteria,
+  useInboxFilterStore,
+} from '../store/inboxFilterStore';
 import type { Opportunity, Candidate, Application } from '../types';
 
 export interface OrbitActionCard {
@@ -301,15 +305,26 @@ export function parseOrbitIntent(prompt: string, currentRoute = ''): ParsedInten
     return { type: 'analytics_summary', params: { raw: prompt } };
   }
 
+  // Prefer inbox criteria filters before blind shortlist (e.g. "shortlist CGPA > 8.5")
+  if (
+    /cgpa\s*(>=|<=|>|<|=|above|over|below|under|at\s+least|less\s+than|more\s+than)?\s*\d/i.test(p) ||
+    p.includes('filter applicant') || p.includes('filter inbox') || p.includes('show applies') ||
+    p.includes('inbox with') || p.includes('applicants with') || p.includes('applications with') ||
+    (p.includes('shortlist') && (/cgpa|match\s*>|skill|campus|from\s+/i.test(p)))
+  ) {
+    return { type: 'search_candidates', params: { query: prompt, applyInbox: true } };
+  }
+
   // 11. Candidate Search & Matching
   if (
     p.includes('find candidate') || p.includes('search candidate') || p.includes('candidates with') ||
     p.includes('who knows') || p.includes('show candidates') || p.includes('best match') ||
     p.includes('matching candidates') || p.includes('python talent') || p.includes('react talent') ||
-    p.includes('campus candidates') || p.includes('cgpa >') || p.includes('students with') ||
-    p.includes('filter candidate') || p.includes('top matches')
+    p.includes('campus candidates') || p.includes('cgpa >') || p.includes('cgpa <') ||
+    p.includes('students with') || p.includes('filter candidate') || p.includes('top matches') ||
+    p.includes('match >') || p.includes('match score')
   ) {
-    return { type: 'search_candidates', params: { query: prompt } };
+    return { type: 'search_candidates', params: { query: prompt, applyInbox: true } };
   }
 
   // 12. Specific Candidate Profile Lookup
@@ -959,68 +974,75 @@ export async function executeOrbitPrompt(
   }
 
   // =========================================================================
-  // 11. CANDIDATE SEARCH & MATCHMAKING
+  // 11. CANDIDATE / INBOX CRITERIA → open real Inbox with live filtered rows
   // =========================================================================
   if (intent.type === 'search_candidates') {
-    onToolProgress?.('Executing multidimensional candidate search...');
+    onToolProgress?.('Applying criteria to Connect Inbox...');
+    const criteria = useInboxFilterStore.getState().applyFromPrompt(prompt);
+    const apps = await getApplications(companyId);
+    const matchedApps = apps.filter(a => applicationMatchesCriteria(a, criteria));
+
+    // Also keep candidate pool summary for chat context (not the main UX)
     const candidates = await getCandidates();
-    const query = prompt.toLowerCase();
-
-    let matched = candidates.filter(c => {
-      const skillsStr = (c.skills || []).map(s => s.name.toLowerCase()).join(' ');
-      const uniStr = (c.education?.[0]?.institution || '').toLowerCase();
-
-      if (query.includes('python') && !skillsStr.includes('python')) return false;
-      if (query.includes('react') && !skillsStr.includes('react')) return false;
-      if (query.includes('machine learning') && !skillsStr.includes('machine learning') && !skillsStr.includes('ml')) return false;
-      if (query.includes('warangal') && !uniStr.includes('warangal')) return false;
-      if (query.includes('hyderabad') && !uniStr.includes('hyderabad')) return false;
-      if (query.includes('cgpa') && (c.cgpa || 0) < 8.5) return false;
-
+    let matchedCands = candidates.filter(c => {
+      if (criteria.cgpa && !applicationMatchesCriteria({ cgpa: c.cgpa }, criteria)) return false;
+      if (criteria.skills?.length) {
+        const hay = (c.skills || []).map(s => s.name.toLowerCase()).join(' ');
+        if (!criteria.skills.some(s => hay.includes(s.toLowerCase()))) return false;
+      }
+      if (criteria.campus) {
+        const uni = (c.education?.[0]?.institution || '').toLowerCase();
+        if (!uni.includes(criteria.campus.toLowerCase())) return false;
+      }
+      if (criteria.minMatchScore != null) {
+        // candidates don't have matchScore here — skip
+      }
       return true;
     });
 
-    if (matched.length === 0) matched = candidates.slice(0, 4);
-    const topCand = matched[0];
+    orbitAudio.playChime('success');
 
-    orbitAudio.playChime('action');
+    const preview = matchedApps.slice(0, 3).map((a, i) =>
+      `${i + 1}. **${a.studentName || 'Applicant'}** — ${a.jobTitle || 'Drive'}` +
+      (typeof a.cgpa === 'number' ? ` · CGPA ${a.cgpa}` : '') +
+      (typeof a.matchScore === 'number' ? ` · ${Math.round(a.matchScore)}%` : '')
+    ).join('\n');
 
-    const candListMarkdown = matched.slice(0, 3).map((c, i) => {
-      const skillText = (c.skills || []).slice(0, 4).map(s => `\`${s.name} (${s.competency}%)\``).join(' ');
-      return `### ${i + 1}. ${c.name}\n\n` +
-        `• **Institution**: **${c.education?.[0]?.institution || 'Campus Partner'}**\n` +
-        `• **Academic Merit**: **CGPA ${c.cgpa || 9.0} / 10** | *Verified Dossier*\n` +
-        `• **Verified Competencies**: ${skillText}`;
-    }).join('\n\n');
-
-    const dynSuggestions = await getDynamicSuggestedPrompts('search_candidates', topCand.name, undefined, currentRoute);
+    const dynSuggestions = await getDynamicSuggestedPrompts('search_candidates', matchedApps[0]?.studentName, undefined, currentRoute);
 
     return {
-      message: `🎯 **Found ${matched.length} Verified Candidates Matching Your Criteria**\n\n` +
-        candListMarkdown,
+      message:
+        `🎯 **Inbox filter applied**\n\n` +
+        `**Criteria:** ${criteria.label}\n\n` +
+        `Showing **${matchedApps.length}** matching apply${matchedApps.length === 1 ? '' : 's'} on the Inbox page` +
+        (matchedApps.length === 0
+          ? ` (empty until live applies match — ${matchedCands.length} talent-pool profiles also matched).`
+          : `.\n\n${preview}`) +
+        `\n\nNon-matching rows are hidden. Matched rows animate in on the page.`,
       actionCard: {
-        type: 'candidate',
-        title: `Top Match: ${topCand.name}`,
-        subtitle: `${topCand.headline || 'Software Engineer'} • CGPA: ${topCand.cgpa || 9.2}`,
+        type: 'navigation',
+        title: 'Open filtered Inbox',
+        subtitle: criteria.label,
         details: {
-          Candidate: topCand.name,
-          College: topCand.education?.[0]?.institution || 'NIT Warangal',
-          CGPA: `${topCand.cgpa || 9.2} / 10`,
-          Skills: (topCand.skills || []).slice(0, 4).map(s => s.name).join(', '),
+          Criteria: criteria.label,
+          Matches: matchedApps.length,
+          Source: criteria.sourcePrompt || prompt,
         },
-        primaryActionLabel: 'View Full Dossier',
+        primaryActionLabel: 'View matches in Inbox',
         primaryActionPayload: {
-          type: 'NAVIGATE',
-          path: `/industry/candidate/${topCand.id}`,
+          type: 'APPLY_INBOX_FILTER',
+          path: '/industry/applications',
+          data: { prompt, criteria },
         },
-        secondaryActionLabel: `Shortlist ${topCand.name.split(' ')[0]}`,
+        secondaryActionLabel: 'Clear filter',
         secondaryActionPayload: {
-          type: 'COMMAND',
-          data: `shortlist ${topCand.name}`,
+          type: 'CLEAR_INBOX_FILTER',
+          path: '/industry/applications',
         },
       },
       suggestedPrompts: dynSuggestions,
-      soundCue: 'action',
+      soundCue: 'success',
+      navigatePath: '/industry/applications',
     };
   }
 

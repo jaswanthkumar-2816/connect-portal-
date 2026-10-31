@@ -637,9 +637,28 @@
 /* utility animation classes */
 .animate-fade-in      { animation: fadeIn 0.4s ease-out forwards; }
 .animate-slide-up     { animation: slideUp 0.45s ease-out forwards; }
+.animate-slide-left   { animation: slideLeft 0.35s ease-out forwards; }
 .animate-slide-down   { animation: slideDown 0.3s ease-out forwards; }
 .animate-scale-in     { animation: scaleIn 0.35s ease-out forwards; }
 .animate-card-in      { animation: cardIn 0.4s ease-out forwards; }
+
+@keyframes inboxMatchEnter {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+    background-color: rgba(6, 192, 6, 0.18);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    background-color: rgba(6, 192, 6, 0.04);
+  }
+}
+
+.inbox-match-enter {
+  opacity: 0;
+  animation: inboxMatchEnter 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
 .animate-glow-pulse   { animation: glow-pulse 3s ease-in-out infinite; }
 .animate-spin-slow    { animation: spin-slow 8s linear infinite; }
 .animate-pulse-green  { animation: statusPulse 2s ease-in-out infinite; }
@@ -800,6 +819,62 @@
 
 .orbit-window {
   animation: orbitScaleIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  isolation: isolate;
+}
+
+/* Celestial Orbit art — slow circular spin behind chat */
+.orbit-chat-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.orbit-chat-bg-spin {
+  position: absolute;
+  left: 50%;
+  top: 38%;
+  width: min(160%, 920px);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  animation: orbitPlanetSpin 56s linear infinite;
+  will-change: transform;
+}
+
+.orbit-chat-bg-spin img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* Keep the glowing planet centered; crop the fixed "ORBIT" word out of the circle */
+  object-position: center 28%;
+  border-radius: 50%;
+  opacity: 0.42;
+  filter: saturate(1.05) brightness(0.95);
+  user-select: none;
+}
+
+.orbit-chat-bg-veil {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 70% 55% at 50% 32%, rgba(6, 192, 6, 0.08), transparent 55%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.35) 0%, rgba(5, 5, 5, 0.72) 45%, rgba(5, 5, 5, 0.92) 100%);
+}
+
+@keyframes orbitPlanetSpin {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orbit-chat-bg-spin {
+    animation: none;
+  }
 }
 
 .animate-scaleIn {

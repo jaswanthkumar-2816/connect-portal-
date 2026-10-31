@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Send,
@@ -7,7 +7,6 @@ import {
   Minus,
   ArrowRight,
   Zap,
-  Bot,
   Sparkles,
   BarChart3,
   Users,
@@ -40,14 +39,48 @@ import {
   SunMoon,
   ChevronUp,
   SlidersHorizontal,
+  GripHorizontal,
 } from 'lucide-react';
 import { useOrbitStore, type OrbitMessage } from '../../store/orbitStore';
 import { useThemeStore } from '../../store/themeStore';
+import OrbitLogo from './OrbitLogo';
 import {
   getDynamicPortalContext,
   type DynamicPortalContext,
 } from '../../services/dynamicFeatureService';
 
+const ORBIT_POS_KEY = 'hc_orbit_widget_pos';
+
+type OrbitPos = { right: number; bottom: number };
+
+function loadOrbitPos(): OrbitPos {
+  try {
+    const raw = localStorage.getItem(ORBIT_POS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as OrbitPos;
+      if (typeof parsed?.right === 'number' && typeof parsed?.bottom === 'number') {
+        return parsed;
+      }
+    }
+  } catch {}
+  return { right: 24, bottom: 24 };
+}
+
+function saveOrbitPos(pos: OrbitPos) {
+  try {
+    localStorage.setItem(ORBIT_POS_KEY, JSON.stringify(pos));
+  } catch {}
+}
+
+function clampOrbitPos(pos: OrbitPos, width: number, height: number): OrbitPos {
+  const pad = 8;
+  const maxRight = Math.max(pad, window.innerWidth - width - pad);
+  const maxBottom = Math.max(pad, window.innerHeight - height - pad);
+  return {
+    right: Math.min(Math.max(pad, pos.right), maxRight),
+    bottom: Math.min(Math.max(pad, pos.bottom), maxBottom),
+  };
+}
 // ============================================================
 // Enterprise Rich Formatted Content Renderer
 // ============================================================
@@ -178,14 +211,117 @@ export default function OrbitWidget() {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [portalCtx, setPortalCtx] = useState<DynamicPortalContext | null>(null);
+  const [pos, setPos] = useState<OrbitPos>(() =>
+    typeof window !== 'undefined' ? loadOrbitPos() : { right: 24, bottom: 24 }
+  );
+  const [isDragging, setIsDragging] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
+  const dragRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    startRight: number;
+    startBottom: number;
+    width: number;
+    height: number;
+    moved: boolean;
+    target: 'launcher' | 'window';
+  } | null>(null);
 
   const navigate = useNavigate();
   const location = useLocation();
+
+  const windowWidth = isExpanded
+    ? Math.min(860, typeof window !== 'undefined' ? window.innerWidth - 24 : 860)
+    : Math.min(580, typeof window !== 'undefined' ? window.innerWidth - 24 : 580);
+  const windowHeight = isExpanded
+    ? Math.min(800, typeof window !== 'undefined' ? window.innerHeight - 36 : 800)
+    : Math.min(720, typeof window !== 'undefined' ? window.innerHeight - 40 : 720);
+
+  const updatePos = useCallback((next: OrbitPos, width: number, height: number) => {
+    const clamped = clampOrbitPos(next, width, height);
+    setPos(clamped);
+    saveOrbitPos(clamped);
+  }, []);
+
+  // Keep widget on-screen across resize / expand and page navigations
+  useEffect(() => {
+    const keepInView = () => {
+      const w = isOpen ? windowWidth : 56;
+      const h = isOpen ? windowHeight : 56;
+      setPos(prev => {
+        const clamped = clampOrbitPos(prev, w, h);
+        if (clamped.right !== prev.right || clamped.bottom !== prev.bottom) {
+          saveOrbitPos(clamped);
+        }
+        return clamped;
+      });
+    };
+    keepInView();
+    window.addEventListener('resize', keepInView);
+    return () => window.removeEventListener('resize', keepInView);
+  }, [isOpen, isExpanded, windowWidth, windowHeight]);
+
+  const beginDrag = (
+    e: React.PointerEvent,
+    target: 'launcher' | 'window',
+    width: number,
+    height: number
+  ) => {
+    if (e.button !== 0) return;
+    // Don't start drag from interactive controls inside the header
+    const el = e.target as HTMLElement;
+    if (el.closest('button, a, input, textarea, [data-no-drag]')) return;
+
+    e.preventDefault();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    dragRef.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      startRight: pos.right,
+      startBottom: pos.bottom,
+      width,
+      height,
+      moved: false,
+      target,
+    };
+    setIsDragging(true);
+  };
+
+  const onDragMove = (e: React.PointerEvent) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== e.pointerId) return;
+    const dx = e.clientX - drag.startX;
+    const dy = e.clientY - drag.startY;
+    if (!drag.moved && Math.hypot(dx, dy) > 4) drag.moved = true;
+    if (!drag.moved) return;
+    updatePos(
+      { right: drag.startRight - dx, bottom: drag.startBottom - dy },
+      drag.width,
+      drag.height
+    );
+  };
+
+  const endDrag = (e: React.PointerEvent) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== e.pointerId) return;
+    const moved = drag.moved;
+    const target = drag.target;
+    dragRef.current = null;
+    setIsDragging(false);
+    try {
+      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch {}
+    // Launcher: treat as click only when not dragged
+    if (target === 'launcher' && !moved) {
+      setOpen(true);
+    }
+  };
 
   // Load dynamic telemetry on route change or open
   useEffect(() => {
@@ -319,6 +455,20 @@ export default function OrbitWidget() {
       icon: Target,
     },
     {
+      id: 'hiero-cgpa-high',
+      category: 'HIERO',
+      title: 'Inbox: CGPA ≥ 8.5',
+      prompt: 'Show applies with CGPA >= 8.5',
+      icon: GraduationCap,
+    },
+    {
+      id: 'hiero-cgpa-filter',
+      category: 'HIERO',
+      title: 'Inbox: CGPA < 8.5',
+      prompt: 'Filter inbox CGPA < 8.5',
+      icon: GraduationCap,
+    },
+    {
       id: 'hiero-stats',
       category: 'HIERO',
       title: 'Recruitment & Pipeline Stats',
@@ -402,24 +552,30 @@ export default function OrbitWidget() {
       {!isOpen && (
         <button
           type="button"
-          onClick={() => setOpen(true)}
-          className="orbit-launcher-pill fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full flex items-center justify-center shadow-2xl transition-all duration-300 group hover:scale-110 active:scale-95"
+          onPointerDown={e => beginDrag(e, 'launcher', 56, 56)}
+          onPointerMove={onDragMove}
+          onPointerUp={endDrag}
+          onPointerCancel={endDrag}
+          className={`orbit-launcher-pill fixed z-50 w-14 h-14 rounded-full flex items-center justify-center shadow-2xl group overflow-hidden p-0 touch-none ${
+            isDragging ? 'cursor-grabbing scale-105' : 'cursor-grab transition-transform duration-300 hover:scale-110 active:scale-95'
+          }`}
           style={{
-            background: 'rgba(10, 15, 10, 0.95)',
-            border: '1.5px solid rgba(6, 192, 6, 0.5)',
-            boxShadow: '0 10px 30px rgba(0, 0, 0, 0.85), 0 0 20px rgba(6, 192, 6, 0.35)',
-            backdropFilter: 'blur(20px)',
+            right: pos.right,
+            bottom: pos.bottom,
+            left: 'auto',
+            top: 'auto',
+            background: '#050805',
+            border: '1.5px solid rgba(6, 192, 6, 0.55)',
+            boxShadow: '0 10px 30px rgba(0, 0, 0, 0.85), 0 0 22px rgba(6, 192, 6, 0.4)',
           }}
-          title="Open Orbit AI (Ctrl+O)"
+          title="Open Orbit AI — drag to move (Ctrl+O)"
           aria-label="Open Orbit AI Assistant"
         >
-          <div className="relative flex items-center justify-center">
-            <Bot size={25} className="text-[#06c006] transition-transform duration-200 group-hover:scale-110 group-hover:rotate-6" />
-            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-[#00ff66] border-2 border-black shadow-[0_0_8px_#00ff66] animate-pulse" />
-          </div>
+          <OrbitLogo size={56} className="transition-transform duration-200 group-hover:scale-105 pointer-events-none" />
+          <span className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-[#00ff66] border-2 border-black shadow-[0_0_8px_#00ff66] animate-pulse pointer-events-none" />
 
           {unreadCount > 0 && (
-            <span className="absolute -top-1 -left-1 w-5 h-5 rounded-full bg-[#06c006] text-black text-xs font-black flex items-center justify-center shadow-lg border border-black animate-bounce">
+            <span className="absolute -top-1 -left-1 w-5 h-5 rounded-full bg-[#06c006] text-black text-xs font-black flex items-center justify-center shadow-lg border border-black animate-bounce z-10 pointer-events-none">
               {unreadCount}
             </span>
           )}
@@ -431,41 +587,67 @@ export default function OrbitWidget() {
       {/* ------------------------------------------------------------- */}
       {isOpen && (
         <div
-          className={`orbit-window fixed bottom-5 right-5 z-50 flex flex-col transition-all duration-300 shadow-2xl rounded-3xl overflow-hidden ${
+          className={`orbit-window fixed z-50 flex flex-col shadow-2xl rounded-3xl overflow-hidden ${
+            isDragging ? '' : 'transition-[width,height] duration-300'
+          } ${
             isExpanded
               ? 'w-[860px] max-w-[calc(100vw-24px)] h-[800px] max-h-[calc(100vh-36px)]'
               : 'w-[580px] max-w-[calc(100vw-24px)] h-[720px] max-h-[calc(100vh-40px)]'
           }`}
           style={{
-            background: 'rgba(10, 14, 10, 0.96)',
+            right: pos.right,
+            bottom: pos.bottom,
+            left: 'auto',
+            top: 'auto',
+            background: '#050505',
             border: '1px solid rgba(255, 255, 255, 0.1)',
             boxShadow: '0 25px 80px rgba(0, 0, 0, 0.9), 0 0 40px rgba(6, 192, 6, 0.15)',
-            backdropFilter: 'blur(30px)',
           }}
         >
-          {/* Subtle Top Accent Glow Line */}
-          <div className="h-[2px] bg-gradient-to-r from-transparent via-[#06c006]/70 to-transparent pointer-events-none flex-shrink-0" />
+          {/* Rotating Orbit planet background */}
+          <div className="orbit-chat-bg" aria-hidden="true">
+            <div className="orbit-chat-bg-spin">
+              <img src="/brand/orbit-chat-bg.jpg" alt="" draggable={false} />
+            </div>
+            <div className="orbit-chat-bg-veil" />
+          </div>
 
-          {/* ── ULTRA-CLEAN MINIMAL HEADER (Just Orbit AI, Zero Subtext) ── */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.08] bg-black/40 flex-shrink-0">
-            <div className="flex items-center gap-3">
-              <div className="relative w-10 h-10 rounded-xl bg-[#06c006]/15 border border-[#06c006]/40 flex items-center justify-center shadow-[0_0_12px_rgba(6,192,6,0.3)] flex-shrink-0">
-                <Bot size={22} className="text-[#06c006]" />
+          {/* Subtle Top Accent Glow Line */}
+          <div className="relative z-10 h-[2px] bg-gradient-to-r from-transparent via-[#06c006]/70 to-transparent pointer-events-none flex-shrink-0" />
+
+          {/* ── HEADER (drag handle) ── */}
+          <div
+            className={`relative z-10 flex items-center justify-between px-6 py-4 border-b border-white/[0.08] bg-black/35 backdrop-blur-md flex-shrink-0 touch-none ${
+              isDragging ? 'cursor-grabbing' : 'cursor-grab'
+            }`}
+            onPointerDown={e => beginDrag(e, 'window', windowWidth, windowHeight)}
+            onPointerMove={onDragMove}
+            onPointerUp={endDrag}
+            onPointerCancel={endDrag}
+            title="Drag to move Orbit"
+          >
+            <div className="flex items-center gap-3 pointer-events-none">
+              <div className="relative flex-shrink-0">
+                <OrbitLogo size={40} rounded="xl" />
                 <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-[#00ff66] border border-black animate-pulse" />
               </div>
 
               <div>
-                <h3 className="text-lg font-bold text-white tracking-tight font-outfit">Orbit AI</h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-lg font-bold text-white tracking-tight font-outfit">Orbit</h3>
+                  <GripHorizontal size={14} className="text-white/30" aria-hidden />
+                </div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/45">Drag to move · Always around you</p>
               </div>
             </div>
 
             {/* Clean Action Controls */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2" data-no-drag>
               {/* Reset Chat */}
               <button
                 type="button"
                 onClick={clearHistory}
-                className="w-9 h-9 rounded-xl bg-white/[0.04] hover:bg-white/[0.12] text-white/70 hover:text-white border border-white/[0.08] flex items-center justify-center transition-all active:scale-95"
+                className="w-9 h-9 rounded-xl bg-white/[0.04] hover:bg-white/[0.12] text-white/70 hover:text-white border border-white/[0.08] flex items-center justify-center transition-all active:scale-95 cursor-pointer"
                 title="Reset conversation"
               >
                 <RotateCcw size={16} />
@@ -475,7 +657,7 @@ export default function OrbitWidget() {
               <button
                 type="button"
                 onClick={() => setIsExpanded(!isExpanded)}
-                className="w-9 h-9 rounded-xl bg-white/[0.04] hover:bg-white/[0.12] text-white/70 hover:text-white border border-white/[0.08] hidden sm:flex items-center justify-center transition-all active:scale-95"
+                className="w-9 h-9 rounded-xl bg-white/[0.04] hover:bg-white/[0.12] text-white/70 hover:text-white border border-white/[0.08] hidden sm:flex items-center justify-center transition-all active:scale-95 cursor-pointer"
                 title={isExpanded ? 'Collapse size' : 'Expand size'}
               >
                 {isExpanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
@@ -485,7 +667,7 @@ export default function OrbitWidget() {
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="w-9 h-9 rounded-xl bg-white/[0.04] hover:bg-white/[0.12] text-white/70 hover:text-white border border-white/[0.08] flex items-center justify-center transition-all active:scale-95 ml-0.5"
+                className="w-9 h-9 rounded-xl bg-white/[0.04] hover:bg-white/[0.12] text-white/70 hover:text-white border border-white/[0.08] flex items-center justify-center transition-all active:scale-95 ml-0.5 cursor-pointer"
                 title="Minimize (Ctrl+O)"
               >
                 <Minus size={18} />
@@ -494,7 +676,7 @@ export default function OrbitWidget() {
           </div>
 
           {/* ── CHAT MESSAGES BODY (Spacious, Minimal, Breathable) ── */}
-          <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6 custom-scrollbar">
+          <div className="relative z-10 flex-1 overflow-y-auto px-6 py-6 space-y-6 custom-scrollbar">
             {messages.map(msg => (
               <div
                 key={msg.id}
@@ -502,8 +684,9 @@ export default function OrbitWidget() {
               >
                 {/* Role header label */}
                 <div className="flex items-center gap-2 mb-1.5 px-1">
+                  {msg.role !== 'user' && <OrbitLogo size={16} />}
                   <span className="text-xs font-semibold text-white/50">
-                    {msg.role === 'user' ? 'You' : 'Orbit AI'}
+                    {msg.role === 'user' ? 'You' : 'Orbit'}
                   </span>
                 </div>
 
@@ -512,7 +695,7 @@ export default function OrbitWidget() {
                   className={`max-w-[94%] rounded-2xl p-5 transition-all ${
                     msg.role === 'user'
                       ? 'bg-[#06c006] text-black font-semibold rounded-tr-sm shadow-[0_4px_20px_rgba(6,192,6,0.25)]'
-                      : 'bg-white/[0.04] border border-white/[0.08] text-white/95 rounded-tl-sm shadow-md space-y-3.5'
+                      : 'bg-black/55 border border-white/[0.08] text-white/95 rounded-tl-sm shadow-md space-y-3.5 backdrop-blur-sm'
                   }`}
                   style={
                     msg.role === 'user'
@@ -630,7 +813,7 @@ export default function OrbitWidget() {
           </div>
 
           {/* ── FOOTER: Modern Clean Input Box with HIERO & BRIDGE CONTROLS POPUP ── */}
-          <div className="relative border-t border-white/[0.08] bg-black/60 flex-shrink-0 p-4 sm:p-5">
+          <div className="relative z-10 border-t border-white/[0.08] bg-black/55 backdrop-blur-md flex-shrink-0 p-4 sm:p-5">
             {/* ── HIERO & BRIDGE CONTROLS DROPDOWN POPUP ── */}
             {isMenuOpen && (
               <div

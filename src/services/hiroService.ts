@@ -14,7 +14,12 @@ import type {
   Opportunity,
   Company,
   SkillRequirement,
+  PracticeAttempt,
+  PracticeRecord,
+  PracticeSkillTrend,
 } from '../types';
+import { getAuthToken } from '../store/authStore';
+import { GATEWAY_URL } from '../lib/endpoints';
 import {
   demoCandidates,
   demoApplications,
@@ -22,26 +27,110 @@ import {
   demoCompanies,
   demoOpportunities,
   bridgeCandidates,
-  bridgeApplications,
   generateMatchResults,
 } from '../data/demo';
 
 // --- Simulate network delay ---
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-const GATEWAY_URL = import.meta.env.VITE_HIERO_GATEWAY_URL || 'http://localhost:2816';
+
 const PYTHON_BACKEND_URL = import.meta.env.VITE_PYTHON_BACKEND_URL || 'http://localhost:5050';
 const BRIDGE_URL = import.meta.env.VITE_BRIDGE_URL || 'http://localhost:2410';
+const CONNECT_API_KEY = import.meta.env.VITE_CONNECT_API_KEY || '';
+
+function authHeaders(extra?: Record<string, string>): Record<string, string> {
+  const headers: Record<string, string> = { ...(extra || {}) };
+  // When the gateway is reached over an ngrok tunnel, a plain browser request
+  // gets ngrok's warning page instead of the API response. The header opts
+  // out of it; on any other host it is simply ignored.
+  headers['ngrok-skip-browser-warning'] = 'true';
+  // The signed-in recruiter's token identifies the company to the gateway.
+  // It takes precedence over the shared API key, which says nothing about
+  // who is asking.
+  const token = getAuthToken();
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  } else if (CONNECT_API_KEY) {
+    headers.Authorization = `Bearer ${CONNECT_API_KEY}`;
+  }
+  if (CONNECT_API_KEY) {
+    headers['x-api-key'] = CONNECT_API_KEY;
+  }
+  return headers;
+}
 
 async function fetchWithTimeout(url: string, ms = 2500, init?: RequestInit): Promise<Response | null> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), ms);
   try {
-    return await fetch(url, { ...init, signal: controller.signal });
+    const headers = authHeaders(init?.headers as Record<string, string> | undefined);
+    return await fetch(url, { ...init, headers, signal: controller.signal });
   } catch {
     return null;
   } finally {
     clearTimeout(timer);
   }
+}
+
+function currentCompany(): { id?: string; name?: string } {
+  try {
+    const u = JSON.parse(localStorage.getItem('hc_user') || 'null');
+    return { id: u?.companyId, name: u?.companyName };
+  } catch {
+    return {};
+  }
+}
+
+function sameCompanyName(a?: string, b?: string): boolean {
+  if (!a || !b) return false;
+  return a.trim().toLowerCase() === b.trim().toLowerCase();
+}
+
+function opportunityBelongsToCompany(o: any, companyId?: string, companyName?: string): boolean {
+  if (companyId && o?.companyId && o.companyId === companyId) return true;
+  if (sameCompanyName(o?.companyName || o?.company, companyName)) return true;
+  return false;
+}
+
+function withCompanyFields(o: any) {
+  if (!o) return null;
+  return {
+    ...o,
+    id: o.id || o._id || o.opportunityId || o.oppId,
+    companyId: o.companyId || o.company_id || '',
+    companyName: o.companyName || o.company_name || o.company || '',
+  };
+}
+
+function parseMatchScore(raw: any): number | undefined {
+  const v = raw?.match_score ?? raw?.matchScore;
+  if (v === null || v === undefined || v === '') return undefined;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+function asSkillChips(raw: any): { name: string; score: number }[] {
+  if (!raw) return [];
+  const arr = Array.isArray(raw) ? raw : [];
+  return arr.map((s: any) => {
+    if (typeof s === 'string') return s.trim() ? { name: s.trim(), score: 0 } : null;
+    const name = String(s?.name || s?.skill || '').trim();
+    if (!name) return null;
+    const score = typeof s.score === 'number' ? s.score : (typeof s.competency === 'number' ? s.competency : 0);
+    return { name, score };
+  }).filter(Boolean) as { name: string; score: number }[];
+}
+
+function normalizeAppStatus(status: any): Application['status'] {
+  const v = String(status || '').toLowerCase().replace(/[_\s]+/g, '-');
+  if (v.includes('short')) return 'shortlisted';
+  if (v.includes('reject')) return 'rejected';
+  if (v.includes('select') || v === 'hired') return 'selected';
+  if (v.includes('interview')) return 'interview';
+  if (v.includes('review')) return 'under-review';
+  if (v === 'applied' || v === 'under-review' || v === 'shortlisted' || v === 'interview' || v === 'selected' || v === 'rejected') {
+    return v as Application['status'];
+  }
+  return 'applied';
 }
 
 export interface College {
@@ -193,6 +282,59 @@ function saveCustomOpp(opp: Opportunity) {
 
 // --- Candidate Operations ---
 export async function getCandidates(): Promise<Candidate[]> {
+  try {
+    const res = await fetchWithTimeout(`${BRIDGE_URL}/api/connect/candidates`, 3000);
+    if (res?.ok) {
+      const data = await res.json();
+      if (data.success && Array.isArray(data.candidates) && data.candidates.length > 0) {
+        const liveCandidates: Candidate[] = data.candidates.map((c: any) => ({
+          id: c.id || c.regNo,
+          name: c.name,
+          email: c.email,
+          phone: c.phone || '+91-9876543210',
+          avatar: c.avatar,
+          headline: `${c.department || 'CSE'} Final Year • ${c.campusName || c.collegeName || 'Tier-1 Partner College'}`,
+          bio: `Verified collegiate engineering candidate with expertise in ${(c.skills || []).slice(0, 3).join(', ')}.`,
+          location: c.campusLocation || 'India',
+          skills: (c.skills || []).map((s: string) => ({
+            name: s,
+            competency: Math.min(95, Math.max(75, Math.floor((c.cgpa || 8) * 10))),
+            verified: true,
+            lastAssessedAt: new Date().toISOString()
+          })),
+          projects: (c.projects || []).map((p: any) => ({
+            title: p.title,
+            tech: p.tech,
+            link: p.link,
+            url: p.link
+          })),
+          education: [{
+            institution: c.campusName || c.collegeName || 'National Institute of Technology, Warangal',
+            degree: 'Bachelor of Technology',
+            field: c.department || 'Computer Science',
+            startYear: 2022,
+            endYear: 2026,
+            cgpa: c.cgpa
+          }],
+          experience: [],
+          resumeUrl: c.resumeUrl || `https://hiero.io/resumes/${c.regNo || c.id}.pdf`,
+          hieroScore: Math.min(99, Math.round((c.cgpa || 8.0) * 10 + 6)),
+          availability: 'Immediate (2026 Batch)',
+          preferredWorkMode: 'hybrid',
+          preferredLocations: ['Bengaluru', 'Hyderabad'],
+          createdAt: c.academicYear ? '2026-08-01' : new Date().toISOString(),
+          campusName: c.campusName || c.collegeName,
+          cgpa: c.cgpa,
+          department: c.department,
+          placementStatus: c.placementStatus,
+          verificationStatus: c.verificationStatus || 'Verified'
+        }));
+        return liveCandidates;
+      }
+    }
+  } catch (e) {
+    // fallback to demo data
+  }
   await delay(150);
   return [...demoCandidates, ...bridgeCandidates];
 }
@@ -202,6 +344,7 @@ export async function getCandidateById(id: string): Promise<Candidate | null> {
   const list = await getCandidates();
   return list.find(c => c.id === id || (c as any).studentId === id || (c as any).regNo === id) ?? list[0] ?? null;
 }
+
 
 // --- Opportunity Operations ---
 export async function getOpportunities(companyId?: string): Promise<Opportunity[]> {
@@ -228,18 +371,29 @@ export async function getOpportunities(companyId?: string): Promise<Opportunity[
   } catch (e) {}
 
   const custom = getStoredCustomOpps();
-  const demo = demoOpportunities;
   const oppMap = new Map();
-  [...liveBackendOpps, ...custom, ...demo].forEach(o => {
-    if (o && o.id && !oppMap.has(o.id)) {
-      oppMap.set(o.id, o);
-    }
+  [...liveBackendOpps, ...custom].forEach(o => {
+    const normalized = withCompanyFields(o);
+    if (!normalized?.id) return;
+    const prev = oppMap.get(normalized.id);
+    oppMap.set(
+      normalized.id,
+      prev
+        ? {
+            ...prev,
+            ...normalized,
+            companyId: normalized.companyId || prev.companyId,
+            companyName: normalized.companyName || prev.companyName,
+          }
+        : normalized
+    );
   });
 
   const allOpps = Array.from(oppMap.values());
-  if (companyId) {
-    const filtered = allOpps.filter(o => o.companyId === companyId);
-    return filtered.length > 0 ? filtered : allOpps;
+  const scopeId = companyId || currentCompany().id;
+  const scopeName = currentCompany().name;
+  if (scopeId || scopeName) {
+    return allOpps.filter(o => opportunityBelongsToCompany(o, scopeId, scopeName));
   }
   return allOpps;
 }
@@ -256,6 +410,7 @@ export async function createOpportunity(
   const newOpp: Opportunity = {
     id: `j-${Date.now()}`,
     companyId,
+    companyName: data.companyName || currentCompany().name,
     type: data.type || 'internship',
     title: data.title || 'Software Developer Intern',
     department: data.department || 'Engineering',
@@ -265,7 +420,12 @@ export async function createOpportunity(
     eligibility: data.eligibility || 'B.Tech/BE',
     location: data.location || 'Bangalore, India',
     workMode: data.workMode || 'hybrid',
-    employmentType: data.employmentType || (data.type === 'internship' ? 'Internship' : 'Full-time'),
+    employmentType: data.employmentType || (
+      data.type === 'project' ? 'Project'
+        : data.type === 'apprenticeship' ? 'Apprenticeship'
+          : data.type === 'full-time' ? 'Full-time'
+            : 'Internship'
+    ),
     salary: data.salary || '₹25,000/mo',
     deadline: data.deadline || '2026-10-30',
     status: 'active',
@@ -273,12 +433,11 @@ export async function createOpportunity(
     shortlistedCount: 0,
     createdAt: new Date().toISOString().split('T')[0],
   };
-  demoOpportunities.unshift(newOpp);
   saveCustomOpp(newOpp);
 
   // Sync with Hiero Gateway API (http://localhost:2816)
   try {
-    let companyName = (data as any).companyName || '';
+    let companyName = newOpp.companyName || data.companyName || currentCompany().name || '';
     if (!companyName) {
       try {
         const storedComps = JSON.parse(localStorage.getItem('hc_custom_companies') || '[]');
@@ -441,7 +600,17 @@ function bridgeStatusOf(status: Application['status']): string {
   if (status === 'interview') return 'Interview';
   if (status === 'rejected') return 'Rejected';
   if (status === 'shortlisted') return 'Shortlisted';
-  return 'Under Review';
+  if (status === 'applied' || status === 'under-review') return 'Applied';
+  return 'Applied';
+}
+
+function statusNotes(status: Application['status']): string {
+  if (status === 'shortlisted') return 'Shortlisted by recruiter in Connect.';
+  if (status === 'interview') return 'Moved to Interview in Connect.';
+  if (status === 'selected') return 'Selected by recruiter in Connect.';
+  if (status === 'rejected') return 'Rejected by recruiter in Connect.';
+  if (status === 'applied' || status === 'under-review') return 'Marked Applied in Connect.';
+  return `Status set to ${status} in Connect.`;
 }
 
 export async function notifyCampusAdmin(payload: Record<string, unknown>): Promise<boolean> {
@@ -468,107 +637,181 @@ export async function notifyCampusAdmin(payload: Record<string, unknown>): Promi
   return Boolean(bridgeRes?.ok);
 }
 
-function mapIncomingApp(b: any, companyId?: string): Application {
-  const skillsRaw = b.matchingSkills || b.skills || [];
-  const matchingSkills = (Array.isArray(skillsRaw) ? skillsRaw : []).map((s: any) => (
-    typeof s === 'string' ? { name: s, score: b.matchScore || 85 } : { name: s.name, score: s.score || s.competency || 85 }
-  )).filter((s: any) => s.name);
+function mapIncomingApp(b: any, companyId?: string, sourceHint?: Application['source']): Application {
+  const matchingSkills = asSkillChips(b.matchingSkills || b.skillsMatch?.matched || b.skills);
+  const missingFromGaps = Array.isArray(b.skillGaps)
+    ? b.skillGaps.map((g: any) => ({ name: String(g?.name || g || '').trim() })).filter((g: { name: string }) => g.name)
+    : [];
+  const missingFromMatch = Array.isArray(b.skillsMatch?.missing)
+    ? b.skillsMatch.missing.map((n: any) => ({ name: String(n).trim() })).filter((g: { name: string }) => g.name)
+    : [];
+  const missingSkills = asSkillChips(b.missingSkills).map(s => ({ name: s.name }))
+    .concat(missingFromGaps, missingFromMatch);
+
+  const resolvedSource: Application['source'] =
+    (b.source as Application['source']) ||
+    sourceHint ||
+    (b.campusName || b.campus_name || b.college?.name ? 'bridge' : 'hiero');
 
   return {
-    id: b.id || `app-${Date.now()}`,
+    id: b.id || b._id || `app-${Date.now()}`,
     opportunityId: b.opportunity_id || b.opportunityId || b.oppId || '',
-    companyId: b.companyId || companyId || 'c1',
-    companyName: b.company_name || b.companyName,
-    studentId: b.student_id || b.studentId || 'cand-1',
+    // Never fall back to the company that is *asking*. Older records carry no
+    // companyId, and stamping the viewer's id on them made every recruiter's
+    // inbox show every other company's applicants — names, emails, resumes.
+    // Ownership is resolved from the opportunity instead, further down.
+    companyId: b.companyId || b.company_id || undefined,
+    companyName: b.company_name || b.companyName || b.company,
+    studentId: b.student_id || b.studentId || b.student?.id || '',
     studentName: b.student_name || b.studentName || b.student?.name,
     email: b.email || b.student?.email,
     phone: b.phone || b.student?.phone,
     cgpa: b.cgpa || b.student?.cgpa,
     department: b.department || b.student?.department,
-    campusName: b.campusName || b.campus_name || b.college?.name || b.student?.campusName,
-    campusLocation: b.campusLocation || b.college?.location || b.student?.campusLocation,
-    jobTitle: b.jobTitle || b.opportunity?.title,
-    status: b.status === 'Sent to Recruiter' ? 'shortlisted' : (b.status || 'applied'),
-    matchScore: b.match_score || b.matchScore || 88,
+    campusName:
+      b.campusName ||
+      b.campus_name ||
+      b.collegeName ||
+      b.college_name ||
+      b.college?.name ||
+      b.student?.campusName ||
+      b.student?.collegeName ||
+      b.student?.college?.name,
+    campusLocation:
+      b.campusLocation ||
+      b.campus_location ||
+      b.college?.location ||
+      b.student?.campusLocation ||
+      b.student?.college?.location,
+    jobTitle: b.jobTitle || b.job_title || b.opportunity?.title,
+    status: normalizeAppStatus(b.status),
+    matchScore: parseMatchScore(b),
     appliedAt: b.applied_at || b.appliedAt || new Date().toISOString(),
     resumeUrl: b.resume_url || b.resumeUrl || b.student?.resumeUrl,
-    matchingSkills: matchingSkills.length ? matchingSkills : [{ name: 'Python', score: 90 }],
+    matchingSkills,
+    missingSkills,
+    skillsMatch: b.skillsMatch,
+    skillGaps: b.skillGaps,
+    hieroVerified: Boolean(b.verified || b.hieroVerified || b.hiero_verified),
     notes: b.notes,
-    source: b.source || 'bridge',
+    source: resolvedSource,
     projects: b.projects || b.student?.projects,
+    portfolioUrl:
+      b.portfolioUrl ||
+      b.portfolio_url ||
+      b.digitalPortfolioUrl ||
+      b.student?.portfolioUrl ||
+      b.student?.portfolio_url,
   };
 }
 
+async function fetchAllLiveOpportunities(): Promise<Opportunity[]> {
+  const live: Opportunity[] = [];
+  try {
+    const res = await fetchWithTimeout(`${GATEWAY_URL}/api/opportunities`, 4000);
+    if (res?.ok) {
+      const data = await res.json();
+      const list = data?.opportunities || data?.data || (Array.isArray(data) ? data : []);
+      if (Array.isArray(list)) live.push(...list.map(withCompanyFields).filter(Boolean));
+    }
+  } catch {}
+  try {
+    const res = await fetchWithTimeout(`${PYTHON_BACKEND_URL}/api/opportunities`, 3000);
+    if (res?.ok) {
+      const data = await res.json();
+      const list = data?.opportunities || data?.data || (Array.isArray(data) ? data : []);
+      if (Array.isArray(list)) live.push(...list.map(withCompanyFields).filter(Boolean));
+    }
+  } catch {}
+  return live as Opportunity[];
+}
+
+function extractApplicationsArray(data: any): any[] {
+  if (!data) return [];
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data.applications)) return data.applications;
+  if (Array.isArray(data.data)) return data.data;
+  if (Array.isArray(data.results)) return data.results;
+  return [];
+}
+
 export async function getApplications(companyId?: string): Promise<Application[]> {
-  await delay(300);
-  const opps = await getOpportunities(companyId);
-  const companyOppIds = opps.map(o => o.id);
+  await delay(200);
+  const scopeId = companyId || currentCompany().id;
+  const scopeName = currentCompany().name;
+
+  // Company-scoped jobs (for inbox) + full live catalog (to resolve Hiero apps that lack companyId)
+  const [scopedOpps, liveOpps] = await Promise.all([
+    getOpportunities(scopeId),
+    fetchAllLiveOpportunities(),
+  ]);
+  const customOpps = getStoredCustomOpps();
+  const oppById = new Map<string, any>();
+  [...liveOpps, ...customOpps, ...scopedOpps].forEach(o => {
+    if (o?.id) oppById.set(o.id, { ...oppById.get(o.id), ...o });
+  });
+
+  const companyOppIds = new Set(
+    [...oppById.values()]
+      .filter(o => opportunityBelongsToCompany(o, scopeId, scopeName))
+      .map(o => o.id)
+  );
+  // Also include explicitly scoped list (in case live fetch missed local-only posts)
+  scopedOpps.forEach(o => companyOppIds.add(o.id));
 
   let backendApps: Application[] = [];
-  
-  // 0. Pull campus applications from HIERO Bridge (2410)
+
+  // Bridge campus applications
   try {
     const br = await fetchWithTimeout(`${BRIDGE_URL}/api/connect/applications`, 4000);
     if (br?.ok) {
       const brData = await br.json();
-      if (brData.success && Array.isArray(brData.applications)) {
-        backendApps.push(...brData.applications.map((b: any) => mapIncomingApp(b, companyId)));
-      }
+      extractApplicationsArray(brData).forEach((b: any) => {
+        backendApps.push(mapIncomingApp(b, scopeId, 'bridge'));
+      });
     }
-  } catch (e) {}
+  } catch {}
 
-  // 1. Try Python Backend
+  // Python hub
   try {
-    const pyRes = await fetchWithTimeout(`${PYTHON_BACKEND_URL}/api/applications`);
+    const pyRes = await fetchWithTimeout(`${PYTHON_BACKEND_URL}/api/applications`, 4000);
     if (pyRes?.ok) {
       const pyData = await pyRes.json();
-      if (pyData.success && pyData.applications) {
-        backendApps.push(...pyData.applications.map((b: any) => mapIncomingApp(b, companyId)));
-      }
+      extractApplicationsArray(pyData).forEach((b: any) => {
+        backendApps.push(mapIncomingApp(b, scopeId, 'hiero'));
+      });
     }
-  } catch (e) {}
+  } catch {}
 
-  // 2. Try Node Gateway (port 2816)
+  // HIERO Gateway (2816) — primary student applies
   try {
-    const res = await fetchWithTimeout(`${GATEWAY_URL}/api/opportunities/applications`);
+    const res = await fetchWithTimeout(`${GATEWAY_URL}/api/opportunities/applications`, 5000);
     if (res?.ok) {
       const data = await res.json();
-      if (data.success && data.applications) {
-        backendApps.push(...data.applications.map((b: any) => mapIncomingApp(b, companyId)));
-      }
+      extractApplicationsArray(data).forEach((b: any) => {
+        backendApps.push(mapIncomingApp(b, scopeId, 'hiero'));
+      });
     }
-  } catch (e) {}
+  } catch {}
 
-  const customApps = getStoredCustomApps().map((a: any) => ({
-    ...a,
-    studentId: a.studentId || 'cand-1',
-    matchingSkills: a.matchingSkills || [
-      { name: 'Python', score: 95 },
-      { name: 'React', score: 92 },
-      { name: 'TypeScript', score: 90 }
-    ],
-    missingSkills: a.missingSkills || []
-  }));
-
-  const enrichedDemoApps: Application[] = demoApplications.map(d => {
-    const cand = demoCandidates.find(c => c.id === d.studentId);
-    const opp = demoOpportunities.find(o => o.id === d.opportunityId);
+  // Enrich from opportunity so Hiero apps without companyId still scope correctly
+  backendApps = backendApps.map(a => {
+    const opp = a.opportunityId ? oppById.get(a.opportunityId) : null;
+    if (!opp) return a;
     return {
-      ...d,
-      studentName: d.studentName || cand?.name || 'HIERO Candidate',
-      email: d.email || cand?.email,
-      phone: d.phone || cand?.phone,
-      cgpa: d.cgpa || cand?.cgpa || cand?.education?.[0]?.cgpa,
-      department: d.department || cand?.education?.[0]?.field || 'Computer Science',
-      campusName: d.campusName || cand?.education?.[0]?.institution || 'IIT Bombay',
-      campusLocation: d.campusLocation || cand?.location || 'India',
-      jobTitle: d.jobTitle || opp?.title || 'Software Engineer',
-      source: 'hiero',
-      resumeUrl: d.resumeUrl || cand?.resumeUrl || '/resumes/Jaswanth_Kumar_Resume_Master.pdf',
+      ...a,
+      companyId: a.companyId || opp.companyId,
+      companyName: a.companyName || opp.companyName || opp.company,
+      jobTitle: a.jobTitle || opp.title,
     };
   });
 
-  const allApps = [...backendApps, ...enrichedDemoApps, ...bridgeApplications, ...customApps];
+  const customApps = getStoredCustomApps().map(a => ({
+    ...a,
+    source: a.source || 'hiero',
+  }));
+
+  const allApps = [...backendApps, ...customApps];
   const appMap = new Map<string, Application>();
   const keyOf = (a: Application) => a.id || `${a.studentId}::${a.opportunityId}`;
   allApps.forEach(a => {
@@ -576,18 +819,113 @@ export async function getApplications(companyId?: string): Promise<Application[]
     const key = keyOf(a);
     if (!key) return;
     const prev = appMap.get(key) || (a.studentId && a.opportunityId ? appMap.get(`${a.studentId}::${a.opportunityId}`) : undefined);
-    appMap.set(key, prev ? { ...prev, ...a, id: prev.id || a.id } : a);
+    const mergedApp: Application = prev
+      ? {
+          ...prev,
+          ...a,
+          id: prev.id || a.id,
+          source:
+            a.source === 'hiero' || prev.source === 'hiero'
+              ? 'hiero'
+              : (a.source || prev.source),
+          matchScore: a.matchScore ?? prev.matchScore,
+          matchingSkills: (a.matchingSkills?.length ? a.matchingSkills : prev.matchingSkills) || [],
+          skillsMatch: a.skillsMatch || prev.skillsMatch,
+          companyId: a.companyId || prev.companyId,
+          companyName: a.companyName || prev.companyName,
+        }
+      : a;
+    appMap.set(key, mergedApp);
   });
 
   const merged = Array.from(appMap.values());
-  return merged;
+
+  return merged.filter(a => {
+    if (!scopeId && !scopeName) return true;
+    if (scopeId && a.companyId && a.companyId === scopeId) return true;
+    if (sameCompanyName(a.companyName, scopeName)) return true;
+    if (a.opportunityId && companyOppIds.has(a.opportunityId)) return true;
+    // Resolve via live opp ownership when app only has opportunityId
+    const opp = a.opportunityId ? oppById.get(a.opportunityId) : null;
+    if (opp && opportunityBelongsToCompany(opp, scopeId, scopeName)) return true;
+    return false;
+  });
 }
 
 export async function getApplicationsByOpportunity(opportunityId: string): Promise<Application[]> {
-  await delay(200);
-  const customApps = getStoredCustomApps();
-  const allApps = [...customApps, ...demoApplications];
+  const allApps = await getApplications();
   return allApps.filter(a => a.opportunityId === opportunityId);
+}
+
+export async function updateApplicationStatus(
+  id: string,
+  status: Application['status'],
+  current?: Application
+): Promise<Application> {
+  const existing = getStoredCustomApps().find(a => a.id === id);
+  const notes = statusNotes(status);
+  const updated = upsertCustomApp({
+    ...(existing || {
+      id,
+      opportunityId: current?.opportunityId || '',
+      studentId: current?.studentId || '',
+      matchingSkills: current?.matchingSkills || [],
+      appliedAt: current?.appliedAt || new Date().toISOString(),
+    }),
+    ...(current || {}),
+    id,
+    status,
+    notes,
+  });
+
+  const bridgeStatus = bridgeStatusOf(status);
+  const payload = {
+    applicationId: id,
+    status,
+    bridgeStatus,
+    notes: updated.notes,
+    studentId: updated.studentId,
+    opportunityId: updated.opportunityId,
+    studentName: updated.studentName,
+    jobTitle: updated.jobTitle,
+    companyName: updated.companyName,
+  };
+
+  await Promise.all([
+    fetchWithTimeout(`${BRIDGE_URL}/api/connect/applications/${id}/status`, 4000, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: bridgeStatus, notes: updated.notes }),
+    }),
+    fetchWithTimeout(`${GATEWAY_URL}/api/opportunities/applications/status`, 4000, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }),
+    fetchWithTimeout(`${PYTHON_BACKEND_URL}/api/applications/${id}/status`, 4000, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status, notes: updated.notes }),
+    }),
+    fetchWithTimeout(`${PYTHON_BACKEND_URL}/api/applications/status`, 4000, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }),
+  ]);
+
+  // Campus notify on shortlist only — offer / congratulations mail is Phase 2
+  if (status === 'shortlisted' && isCampusApplicant(updated)) {
+    await notifyCampusAdmin({
+      ...payload,
+      email: updated.email,
+      campusName: updated.campusName,
+      resumeUrl: updated.resumeUrl,
+      matchScore: updated.matchScore,
+    });
+  }
+
+  return updated;
 }
 
 // Student application submission (connects Student Portal -> Industry HR Portal)
@@ -702,6 +1040,82 @@ export async function shortlistCandidate(params: {
   }
 
   return app;
+}
+
+// ============================================================
+// Candidate mail
+// ============================================================
+// The portal composes; the gateway sends. Mail credentials never reach the
+// browser, and the gateway stamps the application so the inbox shows what
+// was sent and when.
+
+/** Resumes are stored on the gateway and come back as a gateway-relative
+ *  path. The portal runs on its own origin, so it needs the absolute URL. */
+export function resumeHref(url?: string): string {
+  if (!url) return '';
+  if (/^(https?:|blob:|data:)/i.test(url)) return url;
+  return `${GATEWAY_URL}${url.startsWith('/') ? '' : '/'}${url}`;
+}
+
+export function composeInterviewEmail(params: {
+  app: Application;
+  job?: Opportunity | null;
+  companyName?: string;
+  recruiterName?: string;
+  when?: string;
+  where?: string;
+}): { to: string; subject: string; body: string } {
+  const { app, job } = params;
+  const company = params.companyName || app.companyName || job?.companyName || 'our team';
+  const recruiter = params.recruiterName || 'Recruiting Team';
+  const name = app.studentName || 'there';
+  const role = app.jobTitle || job?.title || 'the role';
+  const when = params.when?.trim();
+  const where = params.where?.trim();
+
+  return {
+    to: app.email || '',
+    subject: `Interview invitation — ${role} at ${company}`,
+    body: `Dear ${name},
+
+Thank you for applying for the ${role} role at ${company}. We would like to invite you for an interview.
+
+${when ? `When: ${when}` : 'When: we will confirm a slot with you shortly'}
+${where ? `Where: ${where}` : 'Where: to be confirmed'}
+
+Please reply to this email to confirm that the time works for you. Bring a copy of your resume and any certificates you have.
+
+We look forward to meeting you.
+
+Regards,
+${recruiter}
+${company}`,
+  };
+}
+
+export async function sendCandidateMail(params: {
+  kind: 'interview' | 'selection' | 'rejection' | 'message';
+  applicationId?: string;
+  opportunityId?: string;
+  to: string;
+  subject: string;
+  body: string;
+  scheduledAt?: string;
+}): Promise<{ ok: boolean; error?: string; application?: Application }> {
+  const res = await fetchWithTimeout(`${GATEWAY_URL}/api/connect/mail/send`, 20000, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+  });
+
+  if (!res) {
+    return { ok: false, error: 'Cannot reach the HIERO gateway. Is it running?' };
+  }
+  const data = await res.json().catch(() => null);
+  if (!res.ok || !data?.success) {
+    return { ok: false, error: data?.error || 'The mail could not be sent.' };
+  }
+  return { ok: true, application: data.application || undefined };
 }
 
 export function composeSelectionEmail(params: {
@@ -1253,4 +1667,228 @@ export async function extractSkillsFromJD(jdText: string): Promise<{
   }));
 
   return { coreSkills: core, additionalSkills: additional };
+}
+
+// ============================================================
+// Practice record — the interview sessions a student ran on HIERO
+// before applying. HIERO already stores these (InterviewSession:
+// scorecard, evaluation, questions[].skill, answers[].evaluationScore);
+// it just has no recruiter-facing route yet, so this returns null
+// until one exists. Shape-tolerant on purpose: it accepts either a
+// summarised record or the raw sessions and folds them here.
+// ============================================================
+
+function firstNumber(...values: unknown[]): number | undefined {
+  for (const v of values) {
+    const n = Number(v);
+    if (v !== null && v !== undefined && v !== '' && Number.isFinite(n)) return n;
+  }
+  return undefined;
+}
+
+// Join questions to answers on the question index so each session yields a
+// score per skill, averaged when a skill was asked about more than once.
+function sessionSkillScores(session: any): { name: string; score: number }[] {
+  const questions = Array.isArray(session?.questions) ? session.questions : [];
+  const answers = Array.isArray(session?.answers) ? session.answers : [];
+  const scoreByIndex = new Map<number, number>();
+  answers.forEach((a: any) => {
+    const idx = Number(a?.questionIndex);
+    const score = firstNumber(a?.evaluationScore);
+    if (Number.isFinite(idx) && score !== undefined) scoreByIndex.set(idx, score);
+  });
+
+  const totals = new Map<string, { sum: number; count: number }>();
+  questions.forEach((q: any) => {
+    const name = String(q?.skill || '').trim();
+    const score = scoreByIndex.get(Number(q?.index));
+    if (!name || score === undefined) return;
+    const prev = totals.get(name) || { sum: 0, count: 0 };
+    totals.set(name, { sum: prev.sum + score, count: prev.count + 1 });
+  });
+
+  return Array.from(totals.entries()).map(([name, t]) => ({
+    name,
+    score: Math.round((t.sum / t.count) * 10) / 10,
+  }));
+}
+
+function toPracticeAttempt(session: any, attempt: number): PracticeAttempt | null {
+  const card = session?.scorecard || {};
+  const evaluation = session?.evaluation || {};
+  const overallScore = firstNumber(card.overallScore, evaluation.overallScore);
+  if (overallScore === undefined) return null;
+
+  const areas = [
+    ...(Array.isArray(card.areasToImprove) ? card.areasToImprove : []),
+    ...(Array.isArray(evaluation.weaknesses) ? evaluation.weaknesses : []),
+  ]
+    .map((a: unknown) => String(a || '').trim())
+    .filter(Boolean);
+
+  return {
+    sessionId: String(session?.sessionId || session?._id || `s-${attempt}`),
+    attempt,
+    role: String(session?.jobRole || session?.role || 'Practice interview'),
+    overallScore,
+    technicalScore: firstNumber(card.technicalScore, evaluation.technicalScore),
+    communicationScore: firstNumber(card.communicationScore, evaluation.communicationScore),
+    problemSolvingScore: firstNumber(card.problemSolvingScore, evaluation.problemSolvingScore),
+    completedAt: String(session?.completedAt || session?.createdAt || ''),
+    skills: sessionSkillScores(session),
+    areasToImprove: Array.from(new Set(areas)),
+  };
+}
+
+function summarisePractice(studentId: string, sessions: any[]): PracticeRecord | null {
+  const completed = sessions.filter(
+    s => !s?.status || String(s.status).toUpperCase() === 'COMPLETED'
+  );
+  const ordered = completed
+    .slice()
+    .sort(
+      (a, b) =>
+        new Date(a?.completedAt || a?.createdAt || 0).getTime() -
+        new Date(b?.completedAt || b?.createdAt || 0).getTime()
+    );
+
+  const attempts = ordered
+    .map((s, i) => toPracticeAttempt(s, i + 1))
+    .filter((a): a is PracticeAttempt => a !== null)
+    .map((a, i) => ({ ...a, attempt: i + 1 }));
+
+  if (!attempts.length) return null;
+
+  const first = attempts[0];
+  const latest = attempts[attempts.length - 1];
+
+  // A skill's trend is its score on the earliest attempt that covered it
+  // against its score on the most recent one that did.
+  const trendMap = new Map<string, PracticeSkillTrend>();
+  attempts.forEach(a => {
+    a.skills.forEach(s => {
+      const key = s.name.toLowerCase();
+      const prev = trendMap.get(key);
+      if (prev) prev.latest = s.score;
+      else trendMap.set(key, { name: s.name, first: s.score, latest: s.score });
+    });
+  });
+
+  const outstanding = latest.areasToImprove;
+  const outstandingKeys = new Set(outstanding.map(a => a.toLowerCase()));
+  const resolved = Array.from(
+    new Set(
+      attempts
+        .slice(0, -1)
+        .flatMap(a => a.areasToImprove)
+        .filter(a => !outstandingKeys.has(a.toLowerCase()))
+    )
+  );
+
+  return {
+    studentId,
+    role: latest.role,
+    attempts,
+    firstScore: first.overallScore,
+    latestScore: latest.overallScore,
+    bestScore: Math.max(...attempts.map(a => a.overallScore)),
+    firstAt: first.completedAt,
+    latestAt: latest.completedAt,
+    skills: Array.from(trendMap.values()),
+    resolved,
+    outstanding,
+  };
+}
+
+// Off by default. Set VITE_DEMO_PRACTICE=true to render a sample record while
+// HIERO's recruiter-facing practice route does not exist yet — useful for
+// screenshots and design review, never for a real recruiter.
+const DEMO_PRACTICE = import.meta.env.VITE_DEMO_PRACTICE === 'true';
+
+function demoPracticeRecord(studentId: string, role?: string): PracticeRecord {
+  const jobRole = role || 'Backend Developer';
+  return {
+    studentId,
+    role: jobRole,
+    attempts: [
+      {
+        sessionId: 'demo-1',
+        attempt: 1,
+        role: jobRole,
+        overallScore: 5.2,
+        completedAt: '2026-10-09',
+        skills: [{ name: 'SQL', score: 4.0 }, { name: 'REST APIs', score: 6.0 }],
+        areasToImprove: ['Rushed through joins without explaining the plan', 'Vague on error handling'],
+      },
+      {
+        sessionId: 'demo-2',
+        attempt: 2,
+        role: jobRole,
+        overallScore: 6.8,
+        completedAt: '2026-10-17',
+        skills: [{ name: 'SQL', score: 6.5 }, { name: 'REST APIs', score: 7.5 }],
+        areasToImprove: ['Vague on error handling'],
+      },
+      {
+        sessionId: 'demo-3',
+        attempt: 3,
+        role: jobRole,
+        overallScore: 8.1,
+        completedAt: '2026-10-24',
+        skills: [{ name: 'SQL', score: 8.0 }, { name: 'REST APIs', score: 9.0 }],
+        areasToImprove: ['Still light on system design trade-offs'],
+      },
+    ],
+    firstScore: 5.2,
+    latestScore: 8.1,
+    bestScore: 8.1,
+    firstAt: '2026-10-09',
+    latestAt: '2026-10-24',
+    skills: [
+      { name: 'SQL', first: 4.0, latest: 8.0 },
+      { name: 'REST APIs', first: 6.0, latest: 9.0 },
+      { name: 'Data structures', first: 5.5, latest: 7.0 },
+    ],
+    resolved: ['Rushed through joins without explaining the plan', 'Vague on error handling'],
+    outstanding: ['Still light on system design trade-offs'],
+  };
+}
+
+export async function getPracticeRecord(
+  studentId: string,
+  role?: string
+): Promise<PracticeRecord | null> {
+  if (!studentId) return null;
+
+  // The gateway only releases a practice record to a company the student
+  // actually applied to, so the company must travel with the request.
+  const company = currentCompany();
+  const params = new URLSearchParams();
+  if (role) params.set('role', role);
+  if (company.id) params.set('companyId', company.id);
+  if (company.name) params.set('companyName', company.name);
+  const query = params.toString() ? `?${params.toString()}` : '';
+  const url = `${GATEWAY_URL}/api/opportunities/practice/${encodeURIComponent(studentId)}${query}`;
+
+  const demo = () => (DEMO_PRACTICE ? demoPracticeRecord(studentId, role) : null);
+
+  const res = await fetchWithTimeout(url, 4000);
+  if (!res?.ok) return demo();
+
+  let data: any;
+  try {
+    data = await res.json();
+  } catch {
+    return demo();
+  }
+
+  // Already summarised upstream — trust it, but only if it carries attempts.
+  if (data?.record?.attempts?.length) return data.record as PracticeRecord;
+
+  const sessions = Array.isArray(data)
+    ? data
+    : data?.sessions || data?.history || data?.interviews || [];
+  if (!Array.isArray(sessions) || !sessions.length) return demo();
+
+  return summarisePractice(studentId, sessions) || demo();
 }

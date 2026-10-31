@@ -9,7 +9,7 @@ import {
 import { getDashboardStats, getOpportunities, getApplications, getCompanyById } from '../../services/hiroService';
 import { useAuthStore } from '../../store/authStore';
 import type { DashboardStats, Opportunity, Application, Company } from '../../types';
-import { formatDate } from '../../lib/utils';
+import { formatDate, getOpportunityTypeLabel, matchesStatusFilter } from '../../lib/utils';
 
 /* ── Animated Counter ── */
 function AnimCounter({ target, duration = 900 }: { target: number; duration?: number }) {
@@ -40,8 +40,8 @@ function AnimCounter({ target, duration = 900 }: { target: number; duration?: nu
 }
 
 /* ── Match Ring ── */
-function MatchRing({ score }: { score: number }) {
-  const isHigh = score >= 80;
+function MatchRing({ score }: { score?: number }) {
+  const isHigh = typeof score === 'number' && score >= 80;
   return (
     <div
       className={`w-10 h-10 rounded-xl flex items-center justify-center text-xs font-bold flex-shrink-0 ${
@@ -51,7 +51,7 @@ function MatchRing({ score }: { score: number }) {
       }`}
       style={{ fontFamily: 'Outfit, sans-serif' }}
     >
-      {score}%
+      {typeof score === 'number' ? `${score}%` : '—'}
     </div>
   );
 }
@@ -107,12 +107,11 @@ export default function Dashboard() {
   const companyInitials = companyDisplayName.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
   const isNewCompany = jobs.length === 0;
 
-  // Stage counts
-  const stageApplied = applications.filter(a => a.status === 'applied').length;
-  const stageReview = applications.filter(a => a.status === 'under-review').length;
-  const stageShortlist = applications.filter(a => a.status === 'shortlisted').length;
-  const stageInterview = applications.filter(a => a.status === 'interview').length;
-  const stageHired = applications.filter(a => a.status === 'selected').length;
+  // Stage counts — Phase 1.5: Applied → Shortlisted → Interview → Selected
+  const stageApplied = applications.filter(a => matchesStatusFilter(a.status, 'applied')).length;
+  const stageShortlist = applications.filter(a => matchesStatusFilter(a.status, 'shortlisted')).length;
+  const stageInterview = applications.filter(a => matchesStatusFilter(a.status, 'interview')).length;
+  const stageHired = applications.filter(a => matchesStatusFilter(a.status, 'selected')).length;
 
   return (
     <div className="max-w-7xl space-y-5 pb-16 font-sans text-[var(--color-text)]">
@@ -321,7 +320,7 @@ export default function Dashboard() {
                             {job.title}
                           </h4>
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-black/10 dark:bg-white/10 text-[var(--color-muted)] uppercase border border-[var(--color-border)]">
-                            {job.type === 'internship' ? 'Internship' : 'Full-time'}
+                            {getOpportunityTypeLabel(job.type)}
                           </span>
                         </div>
                         <p className="text-xs text-[var(--color-muted)] font-medium flex items-center gap-2">
@@ -397,17 +396,16 @@ export default function Dashboard() {
             {/* TAB CONTENT 3: PIPELINE FUNNEL */}
             {activeTab === 'pipeline' && (
               <div className="space-y-3">
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                   {[
-                    { label: 'Applied', count: stageApplied },
-                    { label: 'Review', count: stageReview },
-                    { label: 'Shortlisted', count: stageShortlist },
-                    { label: 'Interview', count: stageInterview },
-                    { label: 'Hired', count: stageHired },
+                    { label: 'Applied', count: stageApplied, status: 'applied' },
+                    { label: 'Shortlisted', count: stageShortlist, status: 'shortlisted' },
+                    { label: 'Interview', count: stageInterview, status: 'interview' },
+                    { label: 'Selected', count: stageHired, status: 'selected' },
                   ].map(stage => (
                     <Link
                       key={stage.label}
-                      to="/industry/pipeline"
+                      to={`/industry/applications?status=${stage.status}`}
                       className="p-3.5 rounded-xl border text-center transition-colors hover:border-[#06c006]/40"
                       style={{ background: 'var(--color-surface-2)', borderColor: 'var(--color-border)' }}
                     >
@@ -417,9 +415,12 @@ export default function Dashboard() {
                   ))}
                 </div>
 
-                <div className="flex justify-end pt-2">
-                  <Link to="/industry/pipeline" className="text-xs text-[#06c006] font-bold hover:underline inline-flex items-center gap-1">
-                    Open Pipeline Board <ArrowRight size={12} />
+                <div className="flex justify-end pt-2 gap-3">
+                  <Link to="/industry/applications" className="text-xs text-[#06c006] font-bold hover:underline inline-flex items-center gap-1">
+                    Open Inbox <ArrowRight size={12} />
+                  </Link>
+                  <Link to="/industry/pipeline" className="text-xs text-[var(--color-muted)] font-bold hover:underline inline-flex items-center gap-1">
+                    Optional board <ArrowRight size={12} />
                   </Link>
                 </div>
               </div>

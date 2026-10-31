@@ -1,51 +1,51 @@
 import { useEffect, useState } from 'react';
-import { GitBranch, ChevronRight } from 'lucide-react';
-import { getApplications, getOpportunities, getCandidates } from '../../services/hiroService';
+import { Link } from 'react-router-dom';
+import { GitBranch, ChevronRight, Inbox } from 'lucide-react';
+import { getApplications, getOpportunities, updateApplicationStatus } from '../../services/hiroService';
 import { useAuthStore } from '../../store/authStore';
-import type { Application, Opportunity, Candidate, ApplicationStatus } from '../../types';
+import { matchesStatusFilter, nextPipelineStage, PIPELINE_STAGES, toPipelineStage } from '../../lib/utils';
+import type { Application, Opportunity, ApplicationStatus } from '../../types';
 
 const COLUMNS: {
-  id: ApplicationStatus; title: string;
-  accent: string; bg: string; text: string;
+  id: (typeof PIPELINE_STAGES)[number];
+  title: string;
+  accent: string;
+  bg: string;
+  text: string;
 }[] = [
-  { id: 'applied',       title: 'Applied',       accent: '#3b82f6', bg: 'rgba(59,130,246,0.12)', text: '#3b82f6' },
-  { id: 'under-review',  title: 'Under Review',  accent: '#f59e0b', bg: 'rgba(245,158,11,0.12)', text: '#f59e0b' },
-  { id: 'shortlisted',   title: 'Shortlisted',   accent: '#06c006', bg: 'rgba(6,192,6,0.12)',   text: '#06c006' },
-  { id: 'interview',     title: 'Interview',     accent: '#a855f7', bg: 'rgba(168,85,247,0.12)', text: '#a855f7' },
-  { id: 'selected',      title: 'Selected',      accent: '#10b981', bg: 'rgba(16,185,129,0.12)', text: '#10b981' },
+  { id: 'applied', title: 'Applied', accent: '#3b82f6', bg: 'rgba(59,130,246,0.12)', text: '#3b82f6' },
+  { id: 'shortlisted', title: 'Shortlisted', accent: '#06c006', bg: 'rgba(6,192,6,0.12)', text: '#06c006' },
+  { id: 'interview', title: 'Interview', accent: '#a855f7', bg: 'rgba(168,85,247,0.12)', text: '#a855f7' },
+  { id: 'selected', title: 'Selected', accent: '#10b981', bg: 'rgba(16,185,129,0.12)', text: '#10b981' },
 ];
 
-const NEXT: Record<string, ApplicationStatus | null> = {
-  applied: 'under-review',
-  'under-review': 'shortlisted',
-  shortlisted: 'interview',
-  interview: 'selected',
-  selected: null,
-};
-
+/** Optional Kanban view — Inbox status filters are the Phase 1.5 primary path. */
 export default function Pipeline() {
   const user = useAuthStore(s => s.user);
   const [applications, setApplications] = useState<Application[]>([]);
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
-  const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   useEffect(() => {
-    const compId = user?.companyId || 'c1';
-    Promise.all([
-      getApplications(compId),
-      getOpportunities(compId),
-      getCandidates(),
-    ]).then(([a, o, c]) => {
-      setApplications(a);
-      setOpportunities(o);
-      setCandidates(c);
-      setLoading(false);
-    });
-  }, [user]);
+    if (!user?.companyId) return;
+    Promise.all([getApplications(user.companyId), getOpportunities(user.companyId)])
+      .then(([a, o]) => {
+        setApplications(a.filter(app => toPipelineStage(app.status) !== 'rejected'));
+        setOpportunities(o);
+      })
+      .finally(() => setLoading(false));
+  }, [user?.companyId]);
 
-  const move = (app: Application, status: ApplicationStatus) =>
-    setApplications(prev => prev.map(a => a.id === app.id ? { ...a, status } : a));
+  const move = async (app: Application, status: ApplicationStatus) => {
+    setBusyId(app.id);
+    try {
+      await updateApplicationStatus(app.id, status, app);
+      setApplications(prev => prev.map(a => (a.id === app.id ? { ...a, status } : a)));
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   if (loading) {
     return (
@@ -57,26 +57,36 @@ export default function Pipeline() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="animate-slide-up">
-        <h1 className="text-2xl font-black text-[var(--color-text)] flex items-center gap-2.5" style={{ fontFamily: 'Outfit, sans-serif' }}>
-          <GitBranch className="text-[#06c006]" size={22} />
-          Recruitment Pipeline
-        </h1>
-        <p className="text-sm text-[var(--color-muted)] mt-1 font-medium">Drag or move candidates through recruitment stages.</p>
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 animate-slide-up">
+        <div>
+          <h1
+            className="text-2xl font-black text-[var(--color-text)] flex items-center gap-2.5"
+            style={{ fontFamily: 'Outfit, sans-serif' }}
+          >
+            <GitBranch className="text-[#06c006]" size={22} />
+            Pipeline
+          </h1>
+          <p className="text-sm text-[var(--color-muted)] mt-1 font-medium">
+            Applied → Shortlisted → Interview → Selected. Optional board — Inbox filters cover Phase 1.5.
+          </p>
+        </div>
+        <Link
+          to="/industry/applications"
+          className="inline-flex items-center gap-1.5 text-sm font-bold text-[#06c006]"
+        >
+          <Inbox size={14} /> Open Inbox
+        </Link>
       </div>
 
-      {/* Kanban Board */}
       <div className="flex gap-4 overflow-x-auto pb-6 -mx-2 px-2">
         {COLUMNS.map((col, colIdx) => {
-          const colApps = applications.filter(a => a.status === col.id);
+          const colApps = applications.filter(a => matchesStatusFilter(a.status, col.id));
           return (
             <div
               key={col.id}
               className="flex-1 min-w-[240px] max-w-[280px] flex flex-col animate-card-in"
               style={{ animationDelay: `${colIdx * 80}ms` }}
             >
-              {/* Column header */}
               <div
                 className="flex items-center gap-2 px-4 py-3 rounded-t-2xl border-t-2"
                 style={{
@@ -86,7 +96,9 @@ export default function Pipeline() {
                   borderRight: `1px solid ${col.accent}30`,
                 }}
               >
-                <span className="text-sm font-bold" style={{ color: col.text }}>{col.title}</span>
+                <span className="text-sm font-bold" style={{ color: col.text }}>
+                  {col.title}
+                </span>
                 <span
                   className="text-[11px] font-bold px-2 py-0.5 rounded-md ml-auto"
                   style={{ background: `${col.accent}20`, color: col.text }}
@@ -95,7 +107,6 @@ export default function Pipeline() {
                 </span>
               </div>
 
-              {/* Cards */}
               <div
                 className="flex-1 rounded-b-2xl p-2.5 space-y-2.5 min-h-[320px] border border-t-0"
                 style={{
@@ -105,30 +116,33 @@ export default function Pipeline() {
               >
                 {colApps.length === 0 && (
                   <div className="flex flex-col items-center justify-center h-32 text-center">
-                    <div
-                      className="w-8 h-8 rounded-xl mb-2 flex items-center justify-center opacity-40"
-                      style={{ background: col.bg }}
-                    >
-                      <span style={{ color: col.text, fontSize: 16 }}>·</span>
-                    </div>
                     <p className="text-[11px] text-[var(--color-muted)] font-medium">Empty</p>
                   </div>
                 )}
 
                 {colApps.map(app => {
-                  const candidate = candidates.find(c => c.id === app.studentId);
                   const job = opportunities.find(o => o.id === app.opportunityId);
-                  const next = NEXT[col.id];
-                  const initials = candidate?.name?.split(' ').map(n => n[0]).join('').slice(0, 2) || '?';
-                  const scoreColor = app.matchScore >= 85 ? '#06c006' : app.matchScore >= 70 ? '#f59e0b' : '#64748b';
+                  const next = nextPipelineStage(app.status);
+                  const initials =
+                    (app.studentName || '?')
+                      .split(' ')
+                      .map(n => n[0])
+                      .join('')
+                      .slice(0, 2) || '?';
+                  const score = app.matchScore;
+                  const scoreColor =
+                    typeof score === 'number' && score >= 85
+                      ? '#06c006'
+                      : typeof score === 'number' && score >= 70
+                        ? '#f59e0b'
+                        : '#64748b';
 
                   return (
                     <div
                       key={app.id}
-                      className="cp-card rounded-xl p-3.5 transition-all duration-200 group cursor-pointer border"
+                      className="cp-card rounded-xl p-3.5 transition-all duration-200 group border"
                     >
                       <div className="flex items-center gap-2.5">
-                        {/* Avatar */}
                         <div
                           className="w-8 h-8 rounded-lg flex items-center justify-center text-[11px] font-black flex-shrink-0"
                           style={{
@@ -140,21 +154,30 @@ export default function Pipeline() {
                           {initials}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-bold text-[var(--color-text)] truncate group-hover:text-[#06c006] transition-colors" style={{ fontFamily: 'Outfit, sans-serif' }}>
-                            {candidate?.name || 'Unknown'}
+                          <p
+                            className="text-sm font-bold text-[var(--color-text)] truncate"
+                            style={{ fontFamily: 'Outfit, sans-serif' }}
+                          >
+                            {app.studentName || 'Applicant'}
                           </p>
-                          <p className="text-[10px] text-[var(--color-muted)] truncate mt-0.5 font-medium">{job?.title}</p>
+                          <p className="text-[10px] text-[var(--color-muted)] truncate mt-0.5 font-medium">
+                            {app.jobTitle || job?.title || 'Drive'}
+                          </p>
                         </div>
-                        <span className="text-xs font-black flex-shrink-0" style={{ color: scoreColor, fontFamily: 'Outfit, sans-serif' }}>
-                          {app.matchScore}%
+                        <span
+                          className="text-xs font-black flex-shrink-0"
+                          style={{ color: scoreColor, fontFamily: 'Outfit, sans-serif' }}
+                        >
+                          {typeof app.matchScore === 'number' ? `${app.matchScore}%` : '—'}
                         </span>
                       </div>
 
-                      {/* Move button */}
                       {next && (
                         <button
+                          type="button"
+                          disabled={busyId === app.id}
                           onClick={() => move(app, next)}
-                          className="mt-2.5 w-full flex items-center justify-center gap-1 text-[11px] py-1.5 rounded-lg font-bold transition-all duration-200"
+                          className="mt-2.5 w-full flex items-center justify-center gap-1 text-[11px] py-1.5 rounded-lg font-bold transition-all duration-200 disabled:opacity-40"
                           style={{
                             background: `${col.accent}12`,
                             color: col.text,
