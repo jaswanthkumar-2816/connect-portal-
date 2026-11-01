@@ -39,13 +39,22 @@ function headers(): Record<string, string> {
 export async function requestAccess(
   companyName: string,
   email: string
-): Promise<{ ok: boolean; message?: string; error?: string }> {
+): Promise<{ ok: boolean; message?: string; error?: string; byEmail?: boolean }> {
   try {
     const res = await fetch(`${GATEWAY_URL}/api/connect/access/request`, {
       method: 'POST',
       headers: headers(),
       body: JSON.stringify({ companyName, email }),
     });
+
+    // A gateway without this route answers 404 with an HTML error page — it
+    // is running a build from before the queue existed. The person filling
+    // the form cannot do anything about that, so send them down the path
+    // that still works instead of showing them a failure.
+    if (res.status === 404 || res.status === 405) {
+      return { ok: false, byEmail: true };
+    }
+
     const data = await res.json().catch(() => null);
     if (!res.ok || !data?.success) {
       return { ok: false, error: data?.error || 'Could not send your request. Try again shortly.' };

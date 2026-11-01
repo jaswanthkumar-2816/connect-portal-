@@ -40,6 +40,16 @@ export default function Register() {
     setSending(true);
     const res = await requestAccess(companyName.trim(), email.trim());
     setSending(false);
+    if (res.byEmail) {
+      // The queue is not reachable on this gateway. Telling someone to try
+      // again shortly would be a lie — nothing is going to change for them.
+      setMessage(
+        `Send your details to connect@hiero.in — company name “${companyName.trim()}” and ` +
+        `${email.trim()} — and HIERO will set up your account.`
+      );
+      setSubmitted(true);
+      return;
+    }
     if (!res.ok) {
       setError(res.error || 'Could not send your request. Try again shortly.');
       return;
