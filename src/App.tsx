@@ -26,6 +26,7 @@ import Applications from './pages/industry/Applications';
 import ModulePage from './pages/industry/ModulePage';
 import AccessRequests from './pages/industry/AccessRequests';
 import AdminLayout from './pages/admin/AdminLayout';
+import AdminLogin from './pages/admin/AdminLogin';
 import Shortlisted from './pages/industry/Shortlisted';
 import Pipeline from './pages/industry/Pipeline';
 import Settings from './pages/industry/Settings';
@@ -45,7 +46,7 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (!isAuthenticated) return <Navigate to="/admin/login" replace />;
   if (user?.accountRole !== 'admin') return <Navigate to="/industry/applications" replace />;
   return <>{children}</>;
 }
@@ -93,6 +94,7 @@ export default function App() {
         <Route path="/register" element={<Register />} />
 
         {/* HIERO admin — its own area, not part of the company portal */}
+        <Route path="/admin/login" element={<AdminLogin />} />
         <Route
           path="/admin"
           element={

@@ -75,6 +75,7 @@ interface AuthState {
   mustChangePassword: boolean;
   error: string | null;
   login: (email: string, password: string) => Promise<boolean>;
+  adminPinLogin: (pin: string) => Promise<boolean>;
   logout: () => void;
   restore: () => Promise<void>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<boolean>;
@@ -124,6 +125,48 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isRestoring: false,
         isLoading: false,
         mustChangePassword: Boolean(data.user?.mustChangePassword),
+        error: null,
+      });
+      return true;
+    } catch {
+      set({ isLoading: false, error: 'Cannot reach the HIERO gateway. Is it running?' });
+      return false;
+    }
+  },
+
+  // The admin area takes a PIN and nothing else. Same token, same scoping as
+  // any other sign-in — the only difference is what the server accepts as
+  // proof of who is asking.
+  adminPinLogin: async (pin) => {
+    set({ isLoading: true, error: null });
+    try {
+      const res = await fetch(`${GATEWAY_URL}/api/connect/auth/admin-pin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+        body: JSON.stringify({ pin }),
+      });
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.success || !data?.token) {
+        set({
+          isLoading: false,
+          error: data?.error || 'Could not sign in. Try again.',
+          isAuthenticated: false,
+          user: null,
+          token: null,
+        });
+        return false;
+      }
+
+      const user = toUser(data.user);
+      persist(data.token, user);
+      set({
+        user,
+        token: data.token,
+        isAuthenticated: true,
+        isRestoring: false,
+        isLoading: false,
+        mustChangePassword: false,
         error: null,
       });
       return true;
