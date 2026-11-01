@@ -56,6 +56,7 @@ function toUser(payload: any): User {
     name: String(payload?.name || ''),
     email: String(payload?.email || ''),
     role: 'industry',
+    accountRole: payload?.role === 'admin' ? 'admin' : 'recruiter',
     companyId: String(payload?.companyId || ''),
     companyName: payload?.companyName ? String(payload.companyName) : undefined,
     designation: String(payload?.designation || 'HR'),

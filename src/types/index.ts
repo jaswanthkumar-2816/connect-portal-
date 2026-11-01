@@ -10,6 +10,9 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
+  /** What this account is inside Connect, from the signed token: an ordinary
+   *  company recruiter, or a HIERO admin who can let companies in. */
+  accountRole?: 'recruiter' | 'admin';
   companyId: string;
   companyName?: string;
   designation: string;

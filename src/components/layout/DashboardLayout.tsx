@@ -6,9 +6,12 @@ import BackgroundAnimation from '../ui/BackgroundAnimation';
 import OrbitWidget from '../orbit/OrbitWidget';
 import OrbitCommandPalette from '../orbit/OrbitCommandPalette';
 import { useOrbitStore } from '../../store/orbitStore';
+import { useAuthStore } from '../../store/authStore';
+import ChangePassword from '../auth/ChangePassword';
 
 export default function DashboardLayout() {
   const location = useLocation();
+  const mustChangePassword = useAuthStore(s => s.mustChangePassword);
   const { toggleOpen, openCommandPalette, isCommandPaletteOpen, closeCommandPalette } = useOrbitStore();
 
   useEffect(() => {
@@ -29,6 +32,10 @@ export default function DashboardLayout() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [openCommandPalette, toggleOpen, isCommandPaletteOpen, closeCommandPalette]);
+
+  // An emailed temporary password should not survive the first sign-in. The
+  // server already said so; nothing had been asking.
+  if (mustChangePassword) return <ChangePassword />;
 
   return (
     <div className="min-h-screen transition-colors duration-300 relative" style={{ background: 'var(--color-bg)' }}>

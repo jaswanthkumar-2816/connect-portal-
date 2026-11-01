@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { requestAccess } from '../services/accessService';
 import { Link } from 'react-router-dom';
 import { useThemeStore } from '../store/themeStore';
 import Logo from '../components/ui/Logo';
@@ -12,7 +13,9 @@ export default function Register() {
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
   const [submitted, setSubmitted] = useState(false);
-  const isLoading = false;
+  const [sending, setSending] = useState(false);
+  const [message, setMessage] = useState('');
+
 
   useEffect(() => {
     const t = setTimeout(() => setLoaded(true), 80);
@@ -30,6 +33,18 @@ export default function Register() {
       setError('A valid HR email is required.');
       return;
     }
+
+    // This used to set a flag and tell people to send an email, so a company
+    // asking to join depended on somebody noticing a message. The request is
+    // recorded now and shows up in HIERO's queue.
+    setSending(true);
+    const res = await requestAccess(companyName.trim(), email.trim());
+    setSending(false);
+    if (!res.ok) {
+      setError(res.error || 'Could not send your request. Try again shortly.');
+      return;
+    }
+    setMessage(res.message || 'Thanks — your request is with the HIERO team.');
     setSubmitted(true);
   };
 
@@ -159,18 +174,16 @@ export default function Register() {
                 className="px-4 py-3 rounded-xl text-sm font-medium"
                 style={{ background: 'rgba(6,192,6,0.08)', border: '1px solid rgba(6,192,6,0.25)', color: '#06c006' }}
               >
-                Thanks — nothing is created automatically. Email{' '}
-                <a href="mailto:connect@hiero.in" className="underline font-bold">connect@hiero.in</a>{' '}
-                with your company name and work email, and HIERO will set up your account.
+                {message}
               </div>
             )}
 
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={sending || submitted}
               className="hiero-btn-primary w-full justify-center py-3.5 font-bold text-sm shadow-[0_0_20px_rgba(6,192,6,0.2)] flex items-center gap-2"
             >
-              {isLoading ? (
+              {sending ? (
                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
                 <>Request access <ArrowRight size={16} /></>

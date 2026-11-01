@@ -20,6 +20,7 @@ const pageTitles: Record<string, string> = {
   '/industry/performance': 'Performance',
   '/industry/payroll': 'Payroll Reports',
   '/industry/analytics': 'Analytics',
+  '/industry/access': 'Access requests',
 };
 
 export default function Topbar() {
