@@ -15,6 +15,7 @@ import { useAuthStore } from '../../store/authStore';
 import { formatDate, getStatusLabel } from '../../lib/utils';
 import type { Application, Opportunity, Candidate } from '../../types';
 import InterviewReport from '../../components/candidates/InterviewReport';
+import InterviewQr from '../../components/candidates/InterviewQr';
 
 const STATUS_OPTIONS = [
   { value: 'all', label: 'All Status' },
@@ -229,6 +230,8 @@ function InterviewMailModal({
             />
           </div>
         </div>
+
+        {withInterview && interviewUrl && <InterviewQr url={interviewUrl} />}
 
         <div className="mb-3">
           <FieldLabel>Subject</FieldLabel>
@@ -575,12 +578,12 @@ export default function Applications() {
 
       {resumeView && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-5"
           style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
           onClick={closeResume}
         >
           <div
-            className="w-full max-w-4xl h-[88vh] rounded-2xl flex flex-col overflow-hidden"
+            className="w-full max-w-5xl h-[94vh] rounded-2xl flex flex-col overflow-hidden"
             style={{ background: '#0e0e18', border: '1px solid rgba(255,255,255,0.1)' }}
             onClick={e => e.stopPropagation()}
           >
@@ -604,8 +607,14 @@ export default function Applications() {
                 </button>
               </div>
             </div>
+            {/* The browser's own PDF chrome was taking a third of the panel
+                for a thumbnail strip and a toolbar, and rendering the page at
+                its native size — so a resume opened small, cropped, and
+                surrounded by furniture. These fragment options turn the
+                viewer's panes off and fit the page to the width available,
+                which is the whole job here: read the CV. */}
             <iframe
-              src={resumeView.href}
+              src={`${resumeView.href}#toolbar=0&navpanes=0&scrollbar=1&view=FitH`}
               title={`Resume — ${resumeView.name}`}
               className="flex-1 w-full"
               style={{ border: 'none', background: '#fff' }}
