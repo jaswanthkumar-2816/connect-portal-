@@ -25,9 +25,30 @@ import CandidateProfile from './pages/industry/CandidateProfile';
 import Applications from './pages/industry/Applications';
 import ModulePage from './pages/industry/ModulePage';
 import AccessRequests from './pages/industry/AccessRequests';
+import AdminLayout from './pages/admin/AdminLayout';
 import Shortlisted from './pages/industry/Shortlisted';
 import Pipeline from './pages/industry/Pipeline';
 import Settings from './pages/industry/Settings';
+
+// HIERO's own area. Signed in is not enough — an ordinary company recruiter
+// has no business here, and the server enforces the same rule on every call.
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const isAuthenticated = useAuthStore(s => s.isAuthenticated);
+  const isRestoring = useAuthStore(s => s.isRestoring);
+  const user = useAuthStore(s => s.user);
+
+  if (isRestoring) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin h-8 w-8 border-2 border-[#06c006] border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (user?.accountRole !== 'admin') return <Navigate to="/industry/applications" replace />;
+  return <>{children}</>;
+}
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore(s => s.isAuthenticated);
@@ -71,6 +92,19 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
 
+        {/* HIERO admin — its own area, not part of the company portal */}
+        <Route
+          path="/admin"
+          element={
+            <AdminRoute>
+              <AdminLayout />
+            </AdminRoute>
+          }
+        >
+          <Route index element={<Navigate to="access" replace />} />
+          <Route path="access" element={<AccessRequests />} />
+        </Route>
+
         {/* Protected Industry Routes */}
         <Route
           path="/industry"
@@ -89,7 +123,7 @@ export default function App() {
           <Route path="matches/:id" element={<CandidateMatches />} />
           <Route path="candidate/:id" element={<CandidateProfile />} />
           <Route path="applications" element={<Applications />} />
-          <Route path="access" element={<AccessRequests />} />
+          <Route path="access" element={<Navigate to="/admin/access" replace />} />
           {/* Workforce modules — mapped out, not built. ModulePage says so. */}
           <Route path="interviews" element={<ModulePage slug="interviews" />} />
           <Route path="employees" element={<ModulePage slug="employees" />} />

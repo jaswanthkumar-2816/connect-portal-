@@ -35,7 +35,10 @@ export default function Login() {
     }
     const success = await login(email.trim(), password);
     if (success) {
-      navigate('/industry/applications');
+      // A HIERO admin lands in HIERO's area. They do not recruit for anyone,
+      // so the company inbox would be the wrong first screen.
+      const isAdmin = useAuthStore.getState().user?.accountRole === 'admin';
+      navigate(isAdmin ? '/admin/access' : '/industry/applications');
     } else {
       // The store holds the server's own wording, which distinguishes bad
       // credentials from a disabled account or an unreachable gateway.

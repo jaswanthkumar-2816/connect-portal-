@@ -2,7 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import {
   Briefcase, Inbox, Star, PlusCircle, ChevronLeft, ChevronRight,
   Zap, LogOut, Mic, Users, Fingerprint, CalendarClock, TrendingUp,
-  Receipt, BarChart3, ShieldCheck
+  Receipt, BarChart3
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useState } from 'react';
@@ -20,14 +20,6 @@ interface NavItem {
   /** Planned, with a page that says what it will do and what it waits on. */
   soon?: boolean;
 }
-
-// Deciding which companies get into Connect is a HIERO job, not a customer's,
-// so this section only exists for an admin account. The server checks too —
-// hiding a link is presentation, not a permission.
-const adminSection = {
-  label: 'HIERO',
-  items: [{ to: '/industry/access', icon: ShieldCheck, label: 'Access requests' }] as NavItem[],
-};
 
 const navSections: { label: string; items: NavItem[] }[] = [
   {
@@ -65,7 +57,6 @@ const mobileNavItems = navSections[0].items.filter(item => !item.soon);
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const user = useAuthStore(s => s.user);
-  const sections = user?.accountRole === 'admin' ? [...navSections, adminSection] : navSections;
   const logout = useAuthStore(s => s.logout);
   const navigate = useNavigate();
   const initials = user?.name?.split(' ').map(n => n[0]).join('').slice(0, 2) || 'U';
@@ -92,7 +83,7 @@ export default function Sidebar() {
         </div>
 
         <nav className="flex-1 py-4 overflow-y-auto overflow-x-hidden">
-          {sections.map(section => (
+          {navSections.map(section => (
           <div key={section.label} className={`px-2 mb-1 ${collapsed ? 'px-2' : 'px-3'}`}>
             {!collapsed && (
               <p className="text-[9px] font-bold tracking-widest uppercase text-[var(--color-muted)] mb-2 mt-3 first:mt-0 px-1">{section.label}</p>
