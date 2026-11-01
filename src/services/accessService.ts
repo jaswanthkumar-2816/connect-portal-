@@ -108,6 +108,30 @@ export async function approveAccessRequest(id: string): Promise<{
   }
 }
 
+/** Send the sign-in details again, with a fresh password. Email is not
+ *  guaranteed to arrive, and approving twice is refused, so without this an
+ *  approved company with a lost email has no way in. */
+export async function resendCredentials(id: string): Promise<{
+  ok: boolean;
+  emailed?: boolean;
+  temporaryPassword?: string;
+  error?: string;
+}> {
+  try {
+    const res = await fetch(`${GATEWAY_URL}/api/connect/access/requests/${id}/resend`, {
+      method: 'POST',
+      headers: headers(),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data?.success) {
+      return { ok: false, error: data?.error || 'Could not resend the credentials.' };
+    }
+    return { ok: true, emailed: data.emailed, temporaryPassword: data.temporaryPassword };
+  } catch {
+    return { ok: false, error: 'Cannot reach the HIERO gateway.' };
+  }
+}
+
 export async function rejectAccessRequest(
   id: string,
   note: string

@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ShieldCheck, Check, X, Mail, Building2, Clock, Loader2, Copy } from 'lucide-react';
+import { ShieldCheck, Check, X, Mail, Building2, Clock, Loader2, Copy, Send } from 'lucide-react';
 import {
   getAccessRequests,
   approveAccessRequest,
   rejectAccessRequest,
+  resendCredentials,
   type AccessRequest,
 } from '../../services/accessService';
 import { useAuthStore } from '../../store/authStore';
@@ -39,6 +40,7 @@ export default function AccessRequests() {
   const [error, setError] = useState('');
   const [busyId, setBusyId] = useState('');
   const [rejecting, setRejecting] = useState<AccessRequest | null>(null);
+  const [sentTo, setSentTo] = useState('');
   const [note, setNote] = useState('');
   // Only ever set when the email failed, so the admin can pass the password
   // on by hand rather than leaving the company locked out.
@@ -87,6 +89,24 @@ export default function AccessRequests() {
       setFallbackPassword({ email: row.email, password: res.temporaryPassword });
     }
     load();
+  };
+
+  const resend = async (row: AccessRequest) => {
+    setBusyId(row.id);
+    setError('');
+    const res = await resendCredentials(row.id);
+    setBusyId('');
+    if (!res.ok) {
+      setError(res.error || 'Could not resend the credentials.');
+      return;
+    }
+    if (!res.emailed && res.temporaryPassword) {
+      setFallbackPassword({ email: row.email, password: res.temporaryPassword });
+    } else {
+      setError('');
+      setSentTo(row.email);
+      setTimeout(() => setSentTo(''), 6000);
+    }
   };
 
   const confirmReject = async () => {
@@ -142,6 +162,15 @@ export default function AccessRequests() {
           style={{ background: 'rgba(255,107,107,0.08)', border: '1px solid rgba(255,107,107,0.3)', color: '#ff6b6b' }}
         >
           {error}
+        </div>
+      )}
+
+      {sentTo && (
+        <div
+          className="text-xs font-semibold rounded-xl px-3 py-2"
+          style={{ background: 'rgba(0,255,102,0.08)', border: '1px solid rgba(0,255,102,0.3)', color: '#00FF66' }}
+        >
+          New sign-in details sent to {sentTo}. The previous password no longer works.
         </div>
       )}
 
@@ -233,6 +262,19 @@ export default function AccessRequests() {
                     </p>
                     {row.note && <p className="text-xs text-white/40 mt-1.5 italic">“{row.note}”</p>}
                   </div>
+
+                  {row.status === 'approved' && (
+                    <button
+                      onClick={() => resend(row)}
+                      disabled={busyId === row.id}
+                      title="Send the sign-in details again with a new password"
+                      className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-semibold transition-all disabled:opacity-50 flex-shrink-0"
+                      style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.6)', border: '1px solid rgba(255,255,255,0.08)' }}
+                    >
+                      {busyId === row.id ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
+                      {busyId === row.id ? 'Sending…' : 'Resend email'}
+                    </button>
+                  )}
 
                   {row.status === 'pending' && (
                     <div className="flex items-center gap-2 flex-shrink-0">
