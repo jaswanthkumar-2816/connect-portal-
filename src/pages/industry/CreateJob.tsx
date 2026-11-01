@@ -4,37 +4,12 @@ import { ArrowRight, Loader2, X } from 'lucide-react';
 import { createOpportunity } from '../../services/hiroService';
 import { useAuthStore } from '../../store/authStore';
 import { employmentTypeFor, getOpportunityTypeLabel } from '../../lib/utils';
+import { profileFor } from '../../lib/industries';
 import type { OpportunityType, SkillRequirement } from '../../types';
 
-const POST_TYPES: { id: OpportunityType; label: string; hint: string }[] = [
-  { id: 'internship', label: 'Internship', hint: 'Fixed-term campus / fresher role' },
-  { id: 'full-time', label: 'Full-time', hint: 'Entry-level or lateral hire' },
-  { id: 'project', label: 'Project', hint: 'Live industry / freelance project' },
-  { id: 'apprenticeship', label: 'Apprenticeship', hint: 'Learn-while-you-work track' },
-];
-
-const PLACEHOLDERS: Record<OpportunityType, { title: string; description: string; salary: string }> = {
-  internship: {
-    title: 'e.g. Software Development Intern',
-    description: 'Role, responsibilities, duration, and what the intern will ship.',
-    salary: '₹40,000/mo',
-  },
-  'full-time': {
-    title: 'e.g. Backend Engineer',
-    description: 'Role, responsibilities, and what you are hiring for.',
-    salary: '12–16 LPA',
-  },
-  project: {
-    title: 'e.g. Build a campus placement dashboard',
-    description: 'Scope, deliverables, timeline, and tech stack for this industry project.',
-    salary: 'Stipend / milestone pay',
-  },
-  apprenticeship: {
-    title: 'e.g. Cloud Engineering Apprentice',
-    description: 'Learning plan, mentor support, work schedule, and certification goals.',
-    salary: '₹25,000/mo + training',
-  },
-};
+// What a company is offered depends on its trade. A salon is shown Full-time,
+// Part-time, Trainee and Contract with salon examples; a software company
+// still gets Internship and Project. See src/lib/industries.ts for why.
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return <label className="block text-xs font-bold text-[var(--color-muted)] uppercase tracking-wider mb-1.5">{children}</label>;
@@ -55,8 +30,12 @@ export default function CreateJob() {
   const [error, setError] = useState('');
   const [skillInput, setSkillInput] = useState('');
   const [skills, setSkills] = useState<string[]>([]);
+  const profile = profileFor(user?.industry);
+  const POST_TYPES = profile.types;
+
   const [formData, setFormData] = useState({
-    type: 'internship' as OpportunityType,
+    // The first shape this trade actually hires in, not a campus internship.
+    type: profile.types[0].id as OpportunityType,
     title: '',
     description: '',
     eligibility: '',
@@ -66,7 +45,7 @@ export default function CreateJob() {
   });
 
   const update = (field: string, value: string) => setFormData(prev => ({ ...prev, [field]: value }));
-  const placeholders = PLACEHOLDERS[formData.type];
+  const placeholders = profile.example;
   const typeMeta = POST_TYPES.find(t => t.id === formData.type);
 
   const addSkillsFromInput = (raw: string) => {
@@ -127,7 +106,7 @@ export default function CreateJob() {
       <div>
         <h1 className="text-2xl font-black text-[var(--color-text)]" style={{ fontFamily: 'Outfit, sans-serif' }}>Post opportunity</h1>
         <p className="text-sm text-[var(--color-muted)] mt-1 font-medium">
-          Internship, full-time, project, or apprenticeship — published as {user?.companyName || 'your company'} with required skills for Hiero matching.
+          Published as {user?.companyName || 'your company'}. The skills you list are what applicants are scored against.
         </p>
       </div>
 
@@ -206,7 +185,7 @@ export default function CreateJob() {
               }
             }}
             onBlur={() => addSkillsFromInput(skillInput)}
-            placeholder="React, Python, SQL"
+            placeholder={placeholders.skills}
             className="hiero-input w-full"
           />
         </div>
@@ -216,7 +195,7 @@ export default function CreateJob() {
           <input
             value={formData.eligibility}
             onChange={e => update('eligibility', e.target.value)}
-            placeholder="e.g. B.Tech CS/IT, 2026 batch, CGPA 7+"
+            placeholder={placeholders.eligibility}
             className="hiero-input w-full"
           />
         </div>

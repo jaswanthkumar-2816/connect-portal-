@@ -14,6 +14,7 @@ export interface AccessRequest {
   companyName: string;
   email: string;
   contactName?: string;
+  industry?: string;
   phone?: string;
   status: 'pending' | 'approved' | 'rejected';
   note?: string;
@@ -38,13 +39,14 @@ function headers(): Record<string, string> {
  *  Connect. */
 export async function requestAccess(
   companyName: string,
-  email: string
+  email: string,
+  industry: string = 'general'
 ): Promise<{ ok: boolean; message?: string; error?: string; byEmail?: boolean }> {
   try {
     const res = await fetch(`${GATEWAY_URL}/api/connect/access/request`, {
       method: 'POST',
       headers: headers(),
-      body: JSON.stringify({ companyName, email }),
+      body: JSON.stringify({ companyName, email, industry }),
     });
 
     // A gateway without this route answers 404 with an HTML error page — it

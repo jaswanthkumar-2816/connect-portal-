@@ -115,6 +115,8 @@ export function getOpportunityTypeLabel(type?: string): string {
   switch (type) {
     case 'internship': return 'Internship';
     case 'full-time': return 'Full-time';
+    case 'part-time': return 'Part-time';
+    case 'contract': return 'Contract';
     case 'project': return 'Project';
     case 'apprenticeship': return 'Apprenticeship';
     default: return type ? type : 'Opportunity';
@@ -126,6 +128,8 @@ export function getOpportunityTypeTagClass(type?: string): string {
     case 'internship': return 'tag-skill-purple';
     case 'project': return 'tag-skill-green';
     case 'apprenticeship': return 'tag-skill-gray';
+    case 'part-time': return 'tag-skill-purple';
+    case 'contract': return 'tag-skill-gray';
     case 'full-time':
     default: return 'tag-skill-blue';
   }

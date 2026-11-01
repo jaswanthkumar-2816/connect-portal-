@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { requestAccess } from '../services/accessService';
+import { INDUSTRY_CHOICES } from '../lib/industries';
 import { Link } from 'react-router-dom';
 import { useThemeStore } from '../store/themeStore';
 import Logo from '../components/ui/Logo';
@@ -16,6 +17,7 @@ export default function Register() {
   const [sending, setSending] = useState(false);
   const [message, setMessage] = useState('');
   const [byEmail, setByEmail] = useState(false);
+  const [industry, setIndustry] = useState('salon');
 
 
   useEffect(() => {
@@ -39,7 +41,7 @@ export default function Register() {
     // asking to join depended on somebody noticing a message. The request is
     // recorded now and shows up in HIERO's queue.
     setSending(true);
-    const res = await requestAccess(companyName.trim(), email.trim());
+    const res = await requestAccess(companyName.trim(), email.trim(), industry);
     setSending(false);
     if (res.byEmail) {
       setByEmail(true);
@@ -177,6 +179,29 @@ export default function Register() {
                   border: `1px solid ${isDark ? 'rgba(255,255,255,0.12)' : '#cbd5e1'}`,
                 }}
               />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold uppercase tracking-wider" style={{ color: isDark ? 'rgba(255,255,255,0.6)' : '#475569' }}>
+                What kind of business
+              </label>
+              {/* Decides what the company is offered when it posts a job. A
+                  salon asked for "Internship — fixed-term campus / fresher
+                  role" was being told the product is for somebody else. */}
+              <select
+                value={industry}
+                onChange={e => setIndustry(e.target.value)}
+                className="hiero-input w-full px-4 py-3 rounded-xl text-sm font-medium"
+                style={{
+                  background: isDark ? '#0d0d18' : '#ffffff',
+                  color: isDark ? '#ffffff' : '#0f1117',
+                  border: `1px solid ${isDark ? 'rgba(255,255,255,0.12)' : '#cbd5e1'}`,
+                }}
+              >
+                {INDUSTRY_CHOICES.map(c => (
+                  <option key={c.id} value={c.id}>{c.label}</option>
+                ))}
+              </select>
             </div>
 
             {error && <p className="text-xs text-red-500 font-medium">{error}</p>}

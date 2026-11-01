@@ -13,6 +13,8 @@ export interface User {
   /** What this account is inside Connect, from the signed token: an ordinary
    *  company recruiter, or a HIERO admin who can let companies in. */
   accountRole?: 'recruiter' | 'admin';
+  /** The company's trade, used to shape what it is offered when posting. */
+  industry?: Industry;
   companyId: string;
   companyName?: string;
   designation: string;
@@ -45,7 +47,29 @@ export interface RecruiterInfo {
 }
 
 // --- Opportunities (Jobs, Internships, Projects, Apprenticeships) ---
-export type OpportunityType = 'full-time' | 'internship' | 'project' | 'apprenticeship';
+// Connect started on campus hiring, so these were the four shapes a campus
+// drive takes. A salon, a shop or a clinic hires in different ones, and being
+// offered "Internship — fixed-term campus / fresher role" for a salon manager
+// is the product telling them it is not for them.
+export type OpportunityType =
+  | 'full-time'
+  | 'part-time'
+  | 'internship'
+  | 'apprenticeship'
+  | 'contract'
+  | 'project';
+
+/** What kind of business this company is. Decides which job shapes and
+ *  examples it is offered. */
+export type Industry =
+  | 'general'
+  | 'salon'
+  | 'retail'
+  | 'hospitality'
+  | 'healthcare'
+  | 'education'
+  | 'manufacturing'
+  | 'technology';
 export type WorkMode = 'on-site' | 'hybrid' | 'remote';
 export type OpportunityStatus = 'active' | 'draft' | 'closed';
 
