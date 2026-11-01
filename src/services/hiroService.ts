@@ -1057,6 +1057,25 @@ export function resumeHref(url?: string): string {
   return `${GATEWAY_URL}${url.startsWith('/') ? '' : '/'}${url}`;
 }
 
+/**
+ * Fetch a resume as a blob the browser can open.
+ *
+ * The file is behind the recruiter's token now — a candidate's CV is not
+ * public just because somebody has the link. An <a href> cannot send an
+ * Authorization header, so the portal fetches the bytes and opens those
+ * instead. The caller revokes the URL when the tab is done with it.
+ */
+export async function openResume(url?: string): Promise<{ ok: boolean; href?: string; error?: string }> {
+  if (!url) return { ok: false, error: 'This application has no resume on it.' };
+  const res = await fetchWithTimeout(resumeHref(url), 20000);
+  if (!res) return { ok: false, error: 'Cannot reach the HIERO gateway.' };
+  if (res.status === 401) return { ok: false, error: 'Your session expired. Sign in again.' };
+  if (res.status === 403) return { ok: false, error: 'This resume was not sent to your company.' };
+  if (!res.ok) return { ok: false, error: 'That resume is no longer on the server.' };
+  const blob = await res.blob();
+  return { ok: true, href: URL.createObjectURL(blob) };
+}
+
 export function composeInterviewEmail(params: {
   app: Application;
   job?: Opportunity | null;
@@ -1064,6 +1083,7 @@ export function composeInterviewEmail(params: {
   recruiterName?: string;
   when?: string;
   where?: string;
+  interviewUrl?: string;
 }): { to: string; subject: string; body: string } {
   const { app, job } = params;
   const company = params.companyName || app.companyName || job?.companyName || 'our team';
@@ -1073,24 +1093,92 @@ export function composeInterviewEmail(params: {
   const when = params.when?.trim();
   const where = params.where?.trim();
 
+  // With a link, the interview IS the invitation — the candidate can do it
+  // now, from their phone, without scheduling anything. Without one, this is
+  // an ordinary invitation to come in.
+  const online = params.interviewUrl
+    ? `Please complete a short interview first — about 10 minutes, answered out loud:
+
+${params.interviewUrl}
+
+You can take it once, so start when you are somewhere quiet. It works on a phone.
+
+`
+    : '';
+
+  const inPerson = params.interviewUrl
+    ? (when || where
+        ? `${when ? `We would then like to meet you: ${when}\n` : ''}${where ? `Where: ${where}\n` : ''}\n`
+        : '')
+    : `${when ? `When: ${when}` : 'When: we will confirm a slot with you shortly'}
+${where ? `Where: ${where}` : 'Where: to be confirmed'}
+
+`;
+
   return {
     to: app.email || '',
     subject: `Interview invitation — ${role} at ${company}`,
     body: `Dear ${name},
 
-Thank you for applying for the ${role} role at ${company}. We would like to invite you for an interview.
+Thank you for applying for the ${role} role at ${company}. We would like to take your application forward.
 
-${when ? `When: ${when}` : 'When: we will confirm a slot with you shortly'}
-${where ? `Where: ${where}` : 'Where: to be confirmed'}
+${online}${inPerson}If you have any questions, just reply to this email.
 
-Please reply to this email to confirm that the time works for you. Bring a copy of your resume and any certificates you have.
-
-We look forward to meeting you.
+We look forward to hearing from you.
 
 Regards,
 ${recruiter}
 ${company}`,
   };
+}
+
+export interface InterviewReport {
+  sessionStatus: string;
+  completedAt: string | null;
+  questionsAsked: number;
+  questionsAnswered: number;
+  overall: number | null;
+  scores: Record<string, number | null>;
+  strengths: string[];
+  areasToImprove: string[];
+  recommendation: string;
+  summary: string;
+}
+
+/**
+ * Create the candidate's interview link for an application.
+ *
+ * Nothing is uploaded: the questions come from the job the recruiter already
+ * posted. The link is signed, expires in a week and works once.
+ */
+export async function createInterviewInvite(
+  applicationId: string
+): Promise<{ ok: boolean; url?: string; error?: string }> {
+  const res = await fetchWithTimeout(`${GATEWAY_URL}/api/connect/interview/invite`, 15000, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ applicationId }),
+  });
+  if (!res) return { ok: false, error: 'Cannot reach the HIERO gateway.' };
+  const data = await res.json().catch(() => null);
+  if (!res.ok || !data?.success) {
+    return { ok: false, error: data?.error || 'Could not create the interview link.' };
+  }
+  return { ok: true, url: data.url };
+}
+
+/** The recruiter's view of a finished interview: scores and words only. */
+export async function getInterviewReport(
+  applicationId: string
+): Promise<{ state: string; report: InterviewReport | null }> {
+  const res = await fetchWithTimeout(
+    `${GATEWAY_URL}/api/connect/interview/report/${encodeURIComponent(applicationId)}`,
+    12000
+  );
+  if (!res || !res.ok) return { state: 'none', report: null };
+  const data = await res.json().catch(() => null);
+  if (!data?.success) return { state: 'none', report: null };
+  return { state: data.state || 'none', report: data.report || null };
 }
 
 export async function sendCandidateMail(params: {

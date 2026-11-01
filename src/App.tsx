@@ -23,6 +23,7 @@ import JobDetails from './pages/industry/JobDetails';
 import CandidateMatches from './pages/industry/CandidateMatches';
 import CandidateProfile from './pages/industry/CandidateProfile';
 import Applications from './pages/industry/Applications';
+import ModulePage from './pages/industry/ModulePage';
 import Shortlisted from './pages/industry/Shortlisted';
 import Pipeline from './pages/industry/Pipeline';
 import Settings from './pages/industry/Settings';
@@ -87,6 +88,14 @@ export default function App() {
           <Route path="matches/:id" element={<CandidateMatches />} />
           <Route path="candidate/:id" element={<CandidateProfile />} />
           <Route path="applications" element={<Applications />} />
+          {/* Workforce modules — mapped out, not built. ModulePage says so. */}
+          <Route path="interviews" element={<ModulePage slug="interviews" />} />
+          <Route path="employees" element={<ModulePage slug="employees" />} />
+          <Route path="attendance" element={<ModulePage slug="attendance" />} />
+          <Route path="shifts" element={<ModulePage slug="shifts" />} />
+          <Route path="performance" element={<ModulePage slug="performance" />} />
+          <Route path="payroll" element={<ModulePage slug="payroll" />} />
+          <Route path="analytics" element={<ModulePage slug="analytics" />} />
           <Route path="shortlisted" element={<Shortlisted />} />
           <Route path="pipeline" element={<Pipeline />} />
           <Route path="settings" element={<Settings />} />

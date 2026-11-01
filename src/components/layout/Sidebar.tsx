@@ -1,18 +1,58 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   Briefcase, Inbox, Star, PlusCircle, ChevronLeft, ChevronRight,
-  Zap, LogOut
+  Zap, LogOut, Mic, Users, Fingerprint, CalendarClock, TrendingUp,
+  Receipt, BarChart3
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { useState } from 'react';
 import { useAuthStore } from '../../store/authStore';
 import Logo from '../ui/Logo';
 
-const navItems = [
-  { to: '/industry/create', icon: PlusCircle, label: 'Post' },
-  { to: '/industry/applications', icon: Inbox, label: 'Inbox' },
-  { to: '/industry/shortlisted', icon: Star, label: 'Shortlisted' },
-  { to: '/industry/jobs', icon: Briefcase, label: 'Jobs' },
+// Connect covers two halves of the same job: filling a role, then running the
+// people who fill it. The nav says so — hiring on top because that is what
+// works today, workforce below it, and the modules that are not built carry a
+// dot rather than pretending to be pages.
+interface NavItem {
+  to: string;
+  icon: LucideIcon;
+  label: string;
+  /** Planned, with a page that says what it will do and what it waits on. */
+  soon?: boolean;
+}
+
+const navSections: { label: string; items: NavItem[] }[] = [
+  {
+    label: 'Recruitment',
+    items: [
+      { to: '/industry/create', icon: PlusCircle, label: 'Post' },
+      { to: '/industry/applications', icon: Inbox, label: 'Inbox' },
+      { to: '/industry/shortlisted', icon: Star, label: 'Shortlisted' },
+      { to: '/industry/jobs', icon: Briefcase, label: 'Jobs' },
+      { to: '/industry/interviews', icon: Mic, label: 'AI Interviews', soon: true },
+    ],
+  },
+  {
+    label: 'Workforce',
+    items: [
+      { to: '/industry/employees', icon: Users, label: 'Employees', soon: true },
+      { to: '/industry/attendance', icon: Fingerprint, label: 'Attendance', soon: true },
+      { to: '/industry/shifts', icon: CalendarClock, label: 'Shift & Leave', soon: true },
+      { to: '/industry/performance', icon: TrendingUp, label: 'Performance', soon: true },
+    ],
+  },
+  {
+    label: 'Insights',
+    items: [
+      { to: '/industry/payroll', icon: Receipt, label: 'Payroll Reports', soon: true },
+      { to: '/industry/analytics', icon: BarChart3, label: 'Analytics', soon: true },
+    ],
+  },
 ];
+
+// The phone bar fits four, so it carries the hiring work that is built.
+// The rest of the modules live in the sidebar on a wider screen.
+const mobileNavItems = navSections[0].items.filter(item => !item.soon);
 
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
@@ -43,12 +83,13 @@ export default function Sidebar() {
         </div>
 
         <nav className="flex-1 py-4 overflow-y-auto overflow-x-hidden">
-          <div className={`px-2 mb-1 ${collapsed ? 'px-2' : 'px-3'}`}>
+          {navSections.map(section => (
+          <div key={section.label} className={`px-2 mb-1 ${collapsed ? 'px-2' : 'px-3'}`}>
             {!collapsed && (
-              <p className="text-[9px] font-bold tracking-widest uppercase text-[var(--color-muted)] mb-2 px-1">Connect</p>
+              <p className="text-[9px] font-bold tracking-widest uppercase text-[var(--color-muted)] mb-2 mt-3 first:mt-0 px-1">{section.label}</p>
             )}
             <div className="space-y-0.5">
-              {navItems.map(item => (
+              {section.items.map(item => (
                 <NavLink
                   key={item.to}
                   to={item.to}
@@ -63,6 +104,13 @@ export default function Sidebar() {
                     <>
                       <item.icon size={17} className={`flex-shrink-0 transition-colors ${isActive ? 'text-[#06c006]' : ''}`} />
                       {!collapsed && <span className="truncate">{item.label}</span>}
+                      {!collapsed && item.soon && (
+                        <span
+                          title="Planned, not built yet"
+                          className="ml-auto w-1.5 h-1.5 rounded-full flex-shrink-0"
+                          style={{ background: 'rgba(255,255,255,0.22)' }}
+                        />
+                      )}
                       {collapsed && (
                         <span className="absolute left-full ml-3 px-2.5 py-1.5 bg-[var(--color-bg-2)] border border-[var(--color-border)] rounded-lg text-xs text-[var(--color-text)] whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-150 shadow-xl z-50 font-bold">
                           {item.label}
@@ -74,6 +122,7 @@ export default function Sidebar() {
               ))}
             </div>
           </div>
+          ))}
         </nav>
 
         <div className="flex-shrink-0 p-3 space-y-2" style={{ borderTop: '1px solid var(--color-border)' }}>
@@ -122,7 +171,7 @@ export default function Sidebar() {
 
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around py-2 px-2"
         style={{ background: 'var(--color-sidebar)', backdropFilter: 'blur(20px)', borderTop: '1px solid var(--color-border)' }}>
-        {navItems.map(item => (
+        {mobileNavItems.map(item => (
           <NavLink
             key={item.to}
             to={item.to}

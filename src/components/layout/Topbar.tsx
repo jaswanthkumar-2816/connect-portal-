@@ -13,6 +13,13 @@ const pageTitles: Record<string, string> = {
   '/industry/pipeline': 'Pipeline',
   '/industry/company': 'Company Profile',
   '/industry/settings': 'Settings',
+  '/industry/interviews': 'AI Interviews',
+  '/industry/employees': 'Employees',
+  '/industry/attendance': 'Attendance',
+  '/industry/shifts': 'Shift & Leave',
+  '/industry/performance': 'Performance',
+  '/industry/payroll': 'Payroll Reports',
+  '/industry/analytics': 'Analytics',
 };
 
 export default function Topbar() {

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FileText, SlidersHorizontal, ArrowUpDown, Mail, ExternalLink, X, Loader2, Check } from 'lucide-react';
+import { FileText, SlidersHorizontal, ArrowUpDown, Mail, Download, X, Loader2, Check } from 'lucide-react';
 import {
   getApplications,
   getOpportunities,
@@ -8,7 +8,8 @@ import {
   updateApplicationStatus,
   composeInterviewEmail,
   sendCandidateMail,
-  resumeHref,
+  openResume,
+  createInterviewInvite,
 } from '../../services/hiroService';
 import { useAuthStore } from '../../store/authStore';
 import { formatDate, getStatusLabel } from '../../lib/utils';
@@ -96,6 +97,11 @@ function InterviewMailModal({
 }) {
   const [when, setWhen] = useState('');
   const [where, setWhere] = useState('');
+  // On by default: the whole point of the AI interview is that the candidate
+  // can do it now, without a slot being agreed first.
+  const [withInterview, setWithInterview] = useState(true);
+  const [interviewUrl, setInterviewUrl] = useState('');
+  const [linkBusy, setLinkBusy] = useState(false);
   const [touchedBody, setTouchedBody] = useState(false);
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
@@ -110,11 +116,26 @@ function InterviewMailModal({
 
   // Keep the draft in step with the fields until the recruiter edits it
   // themselves — after that it is their text, not ours.
+  // The link is created once, when it is first wanted. Asking for it again
+  // would retire the one already in the draft.
   useEffect(() => {
-    const draft = composeInterviewEmail({ app, job, recruiterName, companyName, when: prettyWhen, where });
+    if (!withInterview || interviewUrl || linkBusy) return;
+    setLinkBusy(true);
+    createInterviewInvite(app.id).then(res => {
+      setLinkBusy(false);
+      if (res.ok && res.url) setInterviewUrl(res.url);
+      else setError(res.error || 'Could not create the interview link.');
+    });
+  }, [withInterview, interviewUrl, linkBusy, app.id]);
+
+  useEffect(() => {
+    const draft = composeInterviewEmail({
+      app, job, recruiterName, companyName, when: prettyWhen, where,
+      interviewUrl: withInterview ? interviewUrl : '',
+    });
     setSubject(prev => (touchedBody && prev ? prev : draft.subject));
     if (!touchedBody) setBody(draft.body);
-  }, [app, job, recruiterName, companyName, prettyWhen, where, touchedBody]);
+  }, [app, job, recruiterName, companyName, prettyWhen, where, touchedBody, withInterview, interviewUrl]);
 
   const send = async () => {
     setError('');
@@ -165,9 +186,28 @@ function InterviewMailModal({
           </button>
         </div>
 
+        <label
+          className="flex items-start gap-2.5 mb-3 p-3 rounded-xl cursor-pointer"
+          style={{ background: 'rgba(0,255,102,0.05)', border: '1px solid rgba(0,255,102,0.2)' }}
+        >
+          <input
+            type="checkbox"
+            checked={withInterview}
+            onChange={e => setWithInterview(e.target.checked)}
+            className="mt-0.5 accent-[#00FF66]"
+          />
+          <span className="text-xs leading-relaxed text-white/70">
+            <b className="text-white/90">Include an AI interview link</b>
+            <br />
+            Ten questions from this job post, answered out loud. Works once, expires in a week.
+            {linkBusy && <span className="text-white/40"> · creating link…</span>}
+            {interviewUrl && !linkBusy && <span className="text-hiero-green"> · link ready</span>}
+          </span>
+        </label>
+
         <div className="grid grid-cols-2 gap-3 mb-3">
           <div>
-            <FieldLabel>Date &amp; time</FieldLabel>
+            <FieldLabel>{withInterview ? 'Meet after (optional)' : 'Date & time'}</FieldLabel>
             <input
               type="datetime-local"
               value={when}
@@ -258,6 +298,8 @@ export default function Applications() {
   const [sortBy, setSortBy] = useState<'match' | 'recent'>('recent');
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState('');
+  const [resumeError, setResumeError] = useState('');
+  const [resumeView, setResumeView] = useState<{ href: string; name: string } | null>(null);
   const [mailFor, setMailFor] = useState<Application | null>(null);
 
   useEffect(() => {
@@ -289,6 +331,28 @@ export default function Applications() {
 
   const replace = (updated: Application) =>
     setApplications(prev => prev.map(a => (a.id === updated.id ? { ...a, ...updated } : a)));
+
+  // The file sits behind the recruiter's token, so it is fetched rather than
+  // linked, then handed to a new tab as a blob.
+  const viewResume = async (app: Application) => {
+    setResumeError('');
+    setBusyId(app.id);
+    const res = await openResume(app.resumeUrl);
+    setBusyId('');
+    if (!res.ok || !res.href) {
+      setResumeError(res.error || 'Could not open that resume.');
+      return;
+    }
+    // Shown in the portal rather than a new tab: a popup opened after an
+    // await is blocked by the browser, and reading the CV is the main thing
+    // the recruiter came here to do — it should not cost a tab.
+    setResumeView({ href: res.href, name: app.studentName || 'Resume' });
+  };
+
+  const closeResume = () => {
+    if (resumeView) URL.revokeObjectURL(resumeView.href);
+    setResumeView(null);
+  };
 
   const shortlist = async (app: Application) => {
     setBusyId(app.id);
@@ -358,6 +422,15 @@ export default function Applications() {
         </button>
       </div>
 
+      {resumeError && (
+        <div
+          className="text-xs font-semibold rounded-xl px-3 py-2"
+          style={{ background: 'rgba(255,107,107,0.08)', border: '1px solid rgba(255,107,107,0.3)', color: '#ff6b6b' }}
+        >
+          {resumeError}
+        </div>
+      )}
+
       {/* Application List */}
       {filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 rounded-2xl"
@@ -375,7 +448,7 @@ export default function Applications() {
             // only through the campus directory is what used to turn every
             // direct applicant into "Unknown Candidate".
             const name = candidate?.name || app.studentName || app.email || 'Unknown Candidate';
-            const resume = resumeHref(app.resumeUrl);
+            const resume = app.resumeUrl;
             const statusClass = `status-${app.status === 'under-review' ? 'review' : app.status}`;
             const mailed = app.interviewMailSentAt || app.selectionNotifiedAt;
 
@@ -434,15 +507,14 @@ export default function Applications() {
                   {/* Quick actions */}
                   <div className="flex items-center gap-2 flex-shrink-0">
                     {resume ? (
-                      <a
-                        href={resume}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex items-center gap-1.5 text-xs px-3.5 py-1.5 rounded-lg font-bold transition-all"
+                      <button
+                        onClick={() => viewResume(app)}
+                        disabled={busyId === app.id}
+                        className="flex items-center gap-1.5 text-xs px-3.5 py-1.5 rounded-lg font-bold transition-all disabled:opacity-60"
                         style={{ background: 'rgba(0,255,102,0.12)', color: '#00FF66', border: '1px solid rgba(0,255,102,0.3)' }}
                       >
-                        <FileText size={12} /> View resume <ExternalLink size={10} />
-                      </a>
+                        <FileText size={12} /> {busyId === app.id ? 'Opening…' : 'View resume'}
+                      </button>
                     ) : (
                       <span className="text-[11px] text-white/20 px-2">No resume</span>
                     )}
@@ -480,6 +552,47 @@ export default function Applications() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {resumeView && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
+          onClick={closeResume}
+        >
+          <div
+            className="w-full max-w-4xl h-[88vh] rounded-2xl flex flex-col overflow-hidden"
+            style={{ background: '#0e0e18', border: '1px solid rgba(255,255,255,0.1)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-4 py-3 flex-shrink-0"
+              style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+              <div className="flex items-center gap-2 min-w-0">
+                <FileText size={15} className="text-hiero-green flex-shrink-0" />
+                <p className="text-sm font-bold text-white/90 truncate">{resumeView.name}</p>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <a
+                  href={resumeView.href}
+                  download={`${resumeView.name.replace(/\s+/g, '_')}.pdf`}
+                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-bold transition-all"
+                  style={{ background: 'rgba(0,255,102,0.12)', color: '#00FF66', border: '1px solid rgba(0,255,102,0.3)' }}
+                >
+                  <Download size={12} /> Download
+                </a>
+                <button onClick={closeResume} className="text-white/40 hover:text-white transition-colors p-1">
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+            <iframe
+              src={resumeView.href}
+              title={`Resume — ${resumeView.name}`}
+              className="flex-1 w-full"
+              style={{ border: 'none', background: '#fff' }}
+            />
+          </div>
         </div>
       )}
 
