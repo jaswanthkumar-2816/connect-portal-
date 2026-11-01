@@ -222,6 +222,15 @@ export interface Application {
   interviewAt?: string;
   /** Original filename of the uploaded resume. */
   resumeName?: string;
+  /** Set once a recruiter sends an AI interview against this application. */
+  interviewInvite?: {
+    jti: string;
+    status: 'sent' | 'started' | 'completed';
+    sentAt?: string;
+    sentBy?: string;
+    startedAt?: string | null;
+    expiresAt?: string;
+  };
   student_id?: string;
   student_name?: string;
   opportunity_id?: string;

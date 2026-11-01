@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FileText, SlidersHorizontal, ArrowUpDown, Mail, Download, X, Loader2, Check } from 'lucide-react';
+import { FileText, SlidersHorizontal, ArrowUpDown, Mail, Download, X, Loader2, Check, Mic } from 'lucide-react';
 import {
   getApplications,
   getOpportunities,
@@ -14,6 +14,7 @@ import {
 import { useAuthStore } from '../../store/authStore';
 import { formatDate, getStatusLabel } from '../../lib/utils';
 import type { Application, Opportunity, Candidate } from '../../types';
+import InterviewReport from '../../components/candidates/InterviewReport';
 
 const STATUS_OPTIONS = [
   { value: 'all', label: 'All Status' },
@@ -300,6 +301,7 @@ export default function Applications() {
   const [busyId, setBusyId] = useState('');
   const [resumeError, setResumeError] = useState('');
   const [resumeView, setResumeView] = useState<{ href: string; name: string } | null>(null);
+  const [reportFor, setReportFor] = useState<Application | null>(null);
   const [mailFor, setMailFor] = useState<Application | null>(null);
 
   useEffect(() => {
@@ -538,6 +540,22 @@ export default function Applications() {
                       </button>
                     )}
 
+                    {app.interviewInvite && (
+                      <button
+                        onClick={() => setReportFor(app)}
+                        title="See how the interview went"
+                        className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-bold transition-all"
+                        style={
+                          app.interviewInvite.status === 'started'
+                            ? { background: 'rgba(99,102,241,0.12)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.3)' }
+                            : { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.6)', border: '1px solid rgba(255,255,255,0.08)' }
+                        }
+                      >
+                        <Mic size={12} />
+                        {app.interviewInvite.status === 'started' ? 'Interview taken' : 'Interview sent'}
+                      </button>
+                    )}
+
                     <button
                       onClick={() => setMailFor(app)}
                       disabled={!app.email}
@@ -594,6 +612,10 @@ export default function Applications() {
             />
           </div>
         </div>
+      )}
+
+      {reportFor && (
+        <InterviewReport app={reportFor} onClose={() => setReportFor(null)} />
       )}
 
       {mailFor && (

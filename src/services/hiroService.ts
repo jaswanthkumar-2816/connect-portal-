@@ -702,6 +702,11 @@ function mapIncomingApp(b: any, companyId?: string, sourceHint?: Application['so
       b.digitalPortfolioUrl ||
       b.student?.portfolioUrl ||
       b.student?.portfolio_url,
+    // Whether an interview has been sent, started or taken. The mapper builds
+    // an explicit object, so anything not named here is dropped — and without
+    // this the inbox could not tell which applications had an interview out.
+    interviewInvite: b.interviewInvite,
+    interviewMailSentAt: b.interviewMailSentAt,
   };
 }
 
