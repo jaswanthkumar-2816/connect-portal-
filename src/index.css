@@ -150,7 +150,13 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: var(--color-bg);
+  /* Always dark, in both themes. The logo is a raster with black baked into
+     it — not a transparent mark — so on the light theme's near-white page it
+     showed as a dirty halo round every leaf. On the black it was drawn for,
+     it reads as intended. A splash is a brand moment; it does not have to
+     follow the app's theme. */
+  background:
+    radial-gradient(120% 90% at 50% 45%, #07140a 0%, #020403 55%, #000000 100%);
   overflow: hidden;
 }
 .splash-bg-mesh {
@@ -192,21 +198,21 @@
 }
 .splash-logo-wrap {
   position: relative;
-  width: 540px;
-  height: 540px;
-  max-width: 90vw;
-  max-height: 70vh;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 .splash-logo-img {
-  width: 500px;
-  height: 500px;
-  max-width: 85vw;
-  max-height: 65vh;
+  /* The source is 935px wide, so staying under that keeps the edges clean —
+     it was being drawn at 500px square against a 935x1169 portrait image,
+     which upscaled the width. */
+  width: auto;
+  height: 420px;
+  max-width: 78vw;
+  max-height: 58vh;
   object-fit: contain;
-  filter: none;
+  /* Lifts the mark off the backdrop without touching the artwork itself. */
+  filter: drop-shadow(0 0 60px rgba(6, 192, 6, 0.18));
 }
 .splash-text-wrap {
   text-align: center;
