@@ -15,6 +15,7 @@ export default function Register() {
   const [submitted, setSubmitted] = useState(false);
   const [sending, setSending] = useState(false);
   const [message, setMessage] = useState('');
+  const [byEmail, setByEmail] = useState(false);
 
 
   useEffect(() => {
@@ -41,6 +42,7 @@ export default function Register() {
     const res = await requestAccess(companyName.trim(), email.trim());
     setSending(false);
     if (res.byEmail) {
+      setByEmail(true);
       // The queue is not reachable on this gateway. Telling someone to try
       // again shortly would be a lie — nothing is going to change for them.
       setMessage(
@@ -180,10 +182,19 @@ export default function Register() {
             {error && <p className="text-xs text-red-500 font-medium">{error}</p>}
 
             {submitted && !error && (
+              // Green means "we have it". The email fallback means the
+              // opposite — nothing was stored and the person still has to do
+              // something — so it must not wear the same colour, or a request
+              // that was never recorded looks like one that was.
               <div
                 className="px-4 py-3 rounded-xl text-sm font-medium"
-                style={{ background: 'rgba(6,192,6,0.08)', border: '1px solid rgba(6,192,6,0.25)', color: '#06c006' }}
+                style={
+                  byEmail
+                    ? { background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.35)', color: '#b45309' }
+                    : { background: 'rgba(6,192,6,0.08)', border: '1px solid rgba(6,192,6,0.25)', color: '#06c006' }
+                }
               >
+                {byEmail && <strong className="block mb-1">Not submitted — send this by email</strong>}
                 {message}
               </div>
             )}
