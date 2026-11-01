@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FileText, SlidersHorizontal, ArrowUpDown, Mail, Download, X, Loader2, Check, Mic } from 'lucide-react';
 import {
@@ -110,6 +110,17 @@ function InterviewMailModal({
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
 
+  // The message box grows to fit what is in it. A fixed-height textarea
+  // inside a scrolling panel gives you two scrollbars and a last line sliced
+  // through the middle — the recruiter cannot see their own email.
+  const bodyRef = useRef<HTMLTextAreaElement | null>(null);
+  useEffect(() => {
+    const el = bodyRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, [body]);
+
   const prettyWhen = when
     ? new Date(when).toLocaleString('en-IN', {
         weekday: 'long', day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit', hour12: true,
@@ -198,6 +209,10 @@ function InterviewMailModal({
             refuses to shrink below its content and the box grew past
             max-h-[92vh] — centring then pushed the header off the top of the
             screen. */}
+        <div className="flex-1 min-h-0 relative flex flex-col">
+        {/* flex-1 + min-h-0 again, not h-full: a percentage height resolves
+            against the parent's declared height, and this parent's is auto,
+            so h-full silently became content height and nothing scrolled. */}
         <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4">
 
         <label
@@ -214,8 +229,18 @@ function InterviewMailModal({
             <b className="text-white/90">Include an AI interview link</b>
             <br />
             Ten questions from this job post, answered out loud. Works once, expires in a week.
-            {linkBusy && <span className="text-white/40"> · creating link…</span>}
-            {interviewUrl && !linkBusy && <span className="text-hiero-green"> · link ready</span>}
+            {linkBusy && (
+              <>
+                <br />
+                <span className="text-white/40">Creating the link…</span>
+              </>
+            )}
+            {interviewUrl && !linkBusy && (
+              <>
+                <br />
+                <span className="text-hiero-green font-semibold">Link ready</span>
+              </>
+            )}
           </span>
         </label>
 
@@ -259,11 +284,12 @@ function InterviewMailModal({
         <div className="mb-3">
           <FieldLabel>Message</FieldLabel>
           <textarea
+            ref={bodyRef}
             value={body}
             onChange={e => { setBody(e.target.value); setTouchedBody(true); }}
-            rows={10}
-            className="w-full rounded-xl px-3 py-2.5 focus:outline-none resize-y leading-relaxed"
-            style={{ ...inputStyle, fontSize: '13px' }}
+            rows={1}
+            className="w-full rounded-xl px-3 py-2.5 focus:outline-none resize-none leading-relaxed block"
+            style={{ ...inputStyle, fontSize: '13px', overflow: 'hidden' }}
           />
         </div>
 
@@ -277,10 +303,17 @@ function InterviewMailModal({
         )}
 
         </div>
+        {/* Text that carries on past the panel fades out. Cut square, it
+            reads as a rendering fault rather than as more to scroll. */}
+        <div
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-7"
+          style={{ background: 'linear-gradient(to bottom, rgba(14,14,24,0), #0e0e18)' }}
+        />
+        </div>
 
         <div
           className="flex items-center justify-between gap-3 px-5 py-3.5 flex-shrink-0"
-          style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}
+          style={{ background: '#0e0e18', borderTop: '1px solid rgba(255,255,255,0.07)' }}
         >
           <p className="text-[11px] text-white/30 leading-snug">
             Sent from the HIERO mailbox; replies come back to your address.
