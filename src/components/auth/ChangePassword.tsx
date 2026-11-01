@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { KeyRound, Loader2 } from 'lucide-react';
+import { KeyRound, Loader2, Eye, EyeOff } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 
 // ============================================================
@@ -13,6 +13,60 @@ import { useAuthStore } from '../../store/authStore';
 // This stands in front of the portal until it is changed. It is not a
 // dismissible prompt: a password sitting in an inbox is the weakest part of
 // the whole sign-in, and the window where it matters is right now.
+
+// A password box you can read back. Someone copying a password out of an
+// email gets it wrong often enough that hiding it is the thing that causes
+// the failed sign-in, not the thing that prevents one.
+function PasswordField({
+  label,
+  value,
+  onChange,
+  autoComplete,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  autoComplete: string;
+  placeholder?: string;
+}) {
+  const [shown, setShown] = useState(false);
+  return (
+    <div>
+      <label
+        className="block text-[10px] font-bold uppercase tracking-wider mb-1.5"
+        style={{ color: 'var(--color-muted)' }}
+      >
+        {label}
+      </label>
+      <div className="relative">
+        <input
+          type={shown ? 'text' : 'password'}
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          autoComplete={autoComplete}
+          placeholder={placeholder}
+          className="w-full rounded-xl pl-3.5 pr-11 py-2.5 text-sm focus:outline-none"
+          style={{
+            background: 'var(--color-input-bg)',
+            border: '1px solid var(--color-border)',
+            color: 'var(--color-text)',
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => setShown(v => !v)}
+          aria-label={shown ? `Hide ${label.toLowerCase()}` : `Show ${label.toLowerCase()}`}
+          title={shown ? 'Hide' : 'Show'}
+          className="absolute right-1.5 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-lg transition-colors"
+          style={{ color: 'var(--color-muted)' }}
+        >
+          {shown ? <EyeOff size={15} /> : <Eye size={15} />}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export default function ChangePassword() {
   const changePassword = useAuthStore(s => s.changePassword);
@@ -44,12 +98,6 @@ export default function ChangePassword() {
     if (!ok) setError(useAuthStore.getState().error || 'Could not change the password.');
   };
 
-  const field: React.CSSProperties = {
-    background: 'var(--color-input-bg)',
-    border: '1px solid var(--color-border)',
-    color: 'var(--color-text)',
-  };
-
   return (
     <div
       className="min-h-screen flex items-center justify-center p-5"
@@ -79,48 +127,27 @@ export default function ChangePassword() {
         </p>
 
         <form onSubmit={submit} className="space-y-3.5">
-          <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: 'var(--color-muted)' }}>
-              Password you were sent
-            </label>
-            <input
-              type="password"
-              value={current}
-              onChange={e => setCurrent(e.target.value)}
-              autoComplete="current-password"
-              className="w-full rounded-xl px-3.5 py-2.5 text-sm focus:outline-none"
-              style={field}
-            />
-          </div>
+          <PasswordField
+            label="Password you were sent"
+            value={current}
+            onChange={setCurrent}
+            autoComplete="current-password"
+          />
 
-          <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: 'var(--color-muted)' }}>
-              New password
-            </label>
-            <input
-              type="password"
-              value={next}
-              onChange={e => setNext(e.target.value)}
-              autoComplete="new-password"
-              placeholder="At least 10 characters"
-              className="w-full rounded-xl px-3.5 py-2.5 text-sm focus:outline-none"
-              style={field}
-            />
-          </div>
+          <PasswordField
+            label="New password"
+            value={next}
+            onChange={setNext}
+            autoComplete="new-password"
+            placeholder="At least 10 characters"
+          />
 
-          <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: 'var(--color-muted)' }}>
-              New password again
-            </label>
-            <input
-              type="password"
-              value={confirm}
-              onChange={e => setConfirm(e.target.value)}
-              autoComplete="new-password"
-              className="w-full rounded-xl px-3.5 py-2.5 text-sm focus:outline-none"
-              style={field}
-            />
-          </div>
+          <PasswordField
+            label="New password again"
+            value={confirm}
+            onChange={setConfirm}
+            autoComplete="new-password"
+          />
 
           {(error || storeError) && (
             <p className="text-xs font-semibold" style={{ color: '#ff6b6b' }}>

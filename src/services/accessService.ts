@@ -153,3 +153,30 @@ export async function rejectAccessRequest(
     return { ok: false, error: 'Cannot reach the HIERO gateway.' };
   }
 }
+
+/** Take a company off the list. An approved company also loses its sign-in:
+ *  deleting only the row would leave an account that still works, which is
+ *  not what removing a company looks like it did. */
+export async function removeAccessRequest(id: string): Promise<{
+  ok: boolean;
+  companyName?: string;
+  accountDisabled?: boolean;
+  error?: string;
+}> {
+  try {
+    const res = await fetch(`${GATEWAY_URL}/api/connect/access/requests/${id}`, {
+      method: 'DELETE',
+      headers: headers(),
+    });
+    if (res.status === 404 || res.status === 405) {
+      return { ok: false, error: 'This server does not support removing companies yet. Deploy the gateway.' };
+    }
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data?.success) {
+      return { ok: false, error: data?.error || 'Could not remove this company.' };
+    }
+    return { ok: true, companyName: data.companyName, accountDisabled: data.accountDisabled };
+  } catch {
+    return { ok: false, error: 'Cannot reach the HIERO gateway.' };
+  }
+}

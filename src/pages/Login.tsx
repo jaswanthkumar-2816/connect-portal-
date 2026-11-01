@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { useThemeStore } from '../store/themeStore';
 import Logo from '../components/ui/Logo';
-import { ArrowRight, Shield, Inbox, Briefcase, Sun, Moon } from 'lucide-react';
+import { ArrowRight, Shield, Inbox, Briefcase, Sun, Moon, Eye, EyeOff } from 'lucide-react';
 
 const BRAND_FEATURES = [
   { icon: Briefcase, text: 'Post a drive to the shared store' },
@@ -14,6 +14,7 @@ const BRAND_FEATURES = [
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loaded, setLoaded] = useState(false);
   const { login, isLoading } = useAuthStore();
@@ -161,19 +162,35 @@ export default function Login() {
 
             <div className="space-y-1.5">
               <label className="text-xs font-bold uppercase tracking-wider" style={{ color: isDark ? 'rgba(255,255,255,0.5)' : '#475569' }}>Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                placeholder="••••••••"
-                autoComplete="current-password"
-                className="hiero-input"
-                style={{
-                  background: isDark ? '#0d0d18' : '#ffffff',
-                  color: isDark ? '#ffffff' : '#0f1117',
-                  border: `1px solid ${isDark ? 'rgba(255,255,255,0.12)' : '#cbd5e1'}`,
-                }}
-              />
+              {/* Readable on request. The password most people type here is
+                  one they are copying out of an email, and hiding it is what
+                  causes the failed sign-in rather than what prevents one. */}
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  autoComplete="current-password"
+                  className="hiero-input"
+                  style={{
+                    background: isDark ? '#0d0d18' : '#ffffff',
+                    color: isDark ? '#ffffff' : '#0f1117',
+                    border: `1px solid ${isDark ? 'rgba(255,255,255,0.12)' : '#cbd5e1'}`,
+                    paddingRight: '2.75rem',
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(v => !v)}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  title={showPassword ? 'Hide' : 'Show'}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-lg transition-colors"
+                  style={{ color: isDark ? 'rgba(255,255,255,0.45)' : '#64748b' }}
+                >
+                  {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
+              </div>
             </div>
 
             {error && (
