@@ -169,24 +169,36 @@ function InterviewMailModal({
       style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}
       onClick={onClose}
     >
+      {/* Header and footer are pinned and only the middle scrolls. Scrolling
+          the whole box took the title and the Send button off screen, and on
+          a short window the top was simply clipped. */}
       <div
-        className="w-full max-w-xl rounded-2xl p-5 max-h-[90vh] overflow-y-auto"
+        className="w-full max-w-xl max-h-[92vh] rounded-2xl flex flex-col overflow-hidden"
         style={{ background: '#0e0e18', border: '1px solid rgba(255,255,255,0.1)' }}
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-start justify-between mb-4">
-          <div>
-            <h3 className="text-lg font-black text-white" style={{ fontFamily: 'Outfit, sans-serif' }}>
+        <div
+          className="flex items-start justify-between gap-3 px-5 py-4 flex-shrink-0"
+          style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}
+        >
+          <div className="min-w-0">
+            <h3 className="text-base font-black text-white" style={{ fontFamily: 'Outfit, sans-serif' }}>
               Interview invitation
             </h3>
-            <p className="text-xs text-white/40 mt-0.5">
+            <p className="text-xs text-white/40 mt-0.5 truncate">
               To {app.studentName || 'candidate'} · <span className="text-white/60">{app.email}</span>
             </p>
           </div>
-          <button onClick={onClose} className="text-white/40 hover:text-white transition-colors">
+          <button onClick={onClose} className="text-white/40 hover:text-white transition-colors flex-shrink-0 -mr-1">
             <X size={18} />
           </button>
         </div>
+
+        {/* min-h-0 matters: a flex child defaults to min-height:auto, so it
+            refuses to shrink below its content and the box grew past
+            max-h-[92vh] — centring then pushed the header off the top of the
+            screen. */}
+        <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4">
 
         <label
           className="flex items-start gap-2.5 mb-3 p-3 rounded-xl cursor-pointer"
@@ -249,9 +261,9 @@ function InterviewMailModal({
           <textarea
             value={body}
             onChange={e => { setBody(e.target.value); setTouchedBody(true); }}
-            rows={12}
-            className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none resize-y"
-            style={{ ...inputStyle, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: '12.5px' }}
+            rows={10}
+            className="w-full rounded-xl px-3 py-2.5 focus:outline-none resize-y leading-relaxed"
+            style={{ ...inputStyle, fontSize: '13px' }}
           />
         </div>
 
@@ -264,14 +276,19 @@ function InterviewMailModal({
           </div>
         )}
 
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-[11px] text-white/30">
+        </div>
+
+        <div
+          className="flex items-center justify-between gap-3 px-5 py-3.5 flex-shrink-0"
+          style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}
+        >
+          <p className="text-[11px] text-white/30 leading-snug">
             Sent from the HIERO mailbox; replies come back to your address.
           </p>
           <div className="flex items-center gap-2">
             <button
               onClick={onClose}
-              className="text-xs px-3.5 py-2 rounded-xl font-semibold transition-all"
+              className="text-xs px-3.5 py-2 rounded-xl font-semibold transition-all whitespace-nowrap"
               style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.6)', border: '1px solid rgba(255,255,255,0.08)' }}
             >
               Cancel
@@ -279,7 +296,7 @@ function InterviewMailModal({
             <button
               onClick={send}
               disabled={sending}
-              className="flex items-center gap-1.5 text-xs px-4 py-2 rounded-xl font-bold transition-all disabled:opacity-60"
+              className="flex items-center gap-1.5 text-xs px-4 py-2 rounded-xl font-bold transition-all disabled:opacity-60 whitespace-nowrap flex-shrink-0"
               style={{ background: 'rgba(0,255,102,0.12)', color: '#00FF66', border: '1px solid rgba(0,255,102,0.3)' }}
             >
               {sending ? <Loader2 size={13} className="animate-spin" /> : <Mail size={13} />}
