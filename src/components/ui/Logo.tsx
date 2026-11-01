@@ -25,7 +25,7 @@ export default function Logo({ size = 'md', showText = true, showGlow = true, cl
   return (
     <div className={`flex items-center ${gapMap[size]} ${className}`}>
       <img
-        src="/logo.png"
+        src="/logo-mark.png"
         alt="Connect"
         className={`${config.img} object-contain flex-shrink-0 ${showGlow ? 'hiero-logo-glow' : ''}`}
       />

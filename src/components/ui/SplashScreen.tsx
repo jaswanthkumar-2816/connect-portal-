@@ -39,7 +39,7 @@ export default function SplashScreen({ onDone }: SplashScreenProps) {
         }}
       >
         <img
-          src="/logo.png"
+          src="/logo-mark.png"
           alt="Connect"
           className="splash-logo-img"
         />
