@@ -342,7 +342,41 @@ export async function getCandidates(): Promise<Candidate[]> {
 export async function getCandidateById(id: string): Promise<Candidate | null> {
   await delay(100);
   const list = await getCandidates();
-  return list.find(c => c.id === id || (c as any).studentId === id || (c as any).regNo === id) ?? list[0] ?? null;
+  const found = list.find(c => c.id === id || (c as any).studentId === id || (c as any).regNo === id);
+  if (found) return found;
+
+  // No `?? list[0]`. That fallback handed back whoever happened to be first
+  // in the directory whenever a lookup missed — so opening a direct
+  // applicant, who is not in the campus directory at all, showed a different
+  // person's name, email, phone, CGPA and practice record as if it were
+  // theirs. A miss is a miss.
+  //
+  // A direct applicant does have a profile; it just lives on the application
+  // they sent rather than in the directory.
+  const apps = await getApplications();
+  const app = apps.find(
+    a => a.studentId === id || String(a.email || '').toLowerCase() === String(id).toLowerCase()
+  );
+  if (!app) return null;
+
+  const profile: any = (app as any).profile || {};
+  const skills: string[] = Array.isArray(profile.skills) ? profile.skills : [];
+
+  return {
+    id: app.studentId || String(app.email || ''),
+    name: app.studentName || profile.fullName || String(app.email || 'Applicant'),
+    email: app.email || profile.email || '',
+    phone: app.phone || profile.phone || '',
+    location: profile.city || '',
+    headline: profile.headline || app.jobTitle || '',
+    about: profile.about || profile.experienceSummary || '',
+    skills: skills.map((name: string) => ({ name, score: 0, category: 'required' })),
+    resumeUrl: app.resumeUrl || '',
+    education: [],
+    experience: [],
+    projects: [],
+    appliedVia: 'application',
+  } as unknown as Candidate;
 }
 
 
@@ -1159,7 +1193,7 @@ export interface InterviewReport {
 export async function createInterviewInvite(
   applicationId: string
 ): Promise<{ ok: boolean; url?: string; error?: string }> {
-  const res = await fetchWithTimeout(`${GATEWAY_URL}/api/connect/interview/invite`, 15000, {
+  const res = await fetchWithTimeout(`${GATEWAY_URL}/api/connect/interview/invite`, 45000, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ applicationId }),
@@ -1195,14 +1229,24 @@ export async function sendCandidateMail(params: {
   body: string;
   scheduledAt?: string;
 }): Promise<{ ok: boolean; error?: string; application?: Application }> {
-  const res = await fetchWithTimeout(`${GATEWAY_URL}/api/connect/mail/send`, 20000, {
+  // Sending is slow: the gateway opens an SMTP connection to Gmail and waits
+  // for it, and on a host that sleeps when idle the first request also pays
+  // for waking up. Twenty seconds was not enough, and the portal reported it
+  // as "cannot reach the gateway" — which sent people looking for an outage
+  // that was not happening.
+  const res = await fetchWithTimeout(`${GATEWAY_URL}/api/connect/mail/send`, 90000, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(params),
   });
 
   if (!res) {
-    return { ok: false, error: 'Cannot reach the HIERO gateway. Is it running?' };
+    // A timeout is not a failure. The gateway may well have sent it, so do
+    // not invite a second send that would reach the candidate twice.
+    return {
+      ok: false,
+      error: 'No answer from HIERO yet. The mail may still have gone out — check before sending again.',
+    };
   }
   const data = await res.json().catch(() => null);
   if (!res.ok || !data?.success) {
