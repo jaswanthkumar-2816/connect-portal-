@@ -148,9 +148,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const data = await res.json().catch(() => null);
 
       if (!res.ok || !data?.success || !data?.token) {
+        // A 404 is not a wrong PIN: the gateway is running but is older than
+        // this page, so PIN sign-in does not exist on it yet. Saying "could
+        // not sign in" there sends someone off to retype a PIN that was
+        // right all along.
+        const message = res.status === 404
+          ? 'This server does not have PIN sign-in yet. Deploy the gateway, or sign in with your email and password.'
+          : data?.error || 'Could not sign in. Try again.';
         set({
           isLoading: false,
-          error: data?.error || 'Could not sign in. Try again.',
+          error: message,
           isAuthenticated: false,
           user: null,
           token: null,
