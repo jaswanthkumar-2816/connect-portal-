@@ -56,10 +56,19 @@ export default function CandidateProfile() {
   }
 
   const primaryEdu = candidate.education && candidate.education[0];
-  const cgpa = candidate.cgpa || primaryEdu?.cgpa || 9.2;
-  const projectCount = candidate.projects?.length || 2;
-  const expCount = candidate.experience?.length || 1;
-  const resumeFileName = candidate.resumeUrl ? candidate.resumeUrl.split('/').pop() : 'Jaswanth_Kumar_Resume_Master.pdf';
+  const cgpa = candidate.cgpa ?? primaryEdu?.cgpa;
+  const projectCount = candidate.projects?.length ?? 0;
+  const expCount = candidate.experience?.length ?? 0;
+  const resumeFileName = candidate.resumeUrl ? candidate.resumeUrl.split('/').pop()?.split('?')[0] : null;
+  const passingYear = candidate.passingYear || primaryEdu?.endYear;
+  const fitScore =
+    typeof candidate.score === 'number'
+      ? candidate.score
+      : typeof (candidate as any)?.matchScore === 'number'
+      ? (candidate as any).matchScore
+      : typeof (candidate as any)?.hieroScore === 'number'
+      ? (candidate as any).hieroScore
+      : null;
 
   return (
     <div className="max-w-4xl space-y-6">
@@ -91,9 +100,15 @@ export default function CandidateProfile() {
                 <p className="text-[var(--color-muted)] font-medium mt-0.5 text-sm">{candidate.headline}</p>
               </div>
 
-              <span className="px-3 py-1 rounded-full text-xs font-black bg-[#06c006]/15 text-[#06c006] border border-[#06c006]/30 flex items-center gap-1.5">
-                <CheckCircle2 size={13} /> 95% HIERO Fit Score
-              </span>
+              {typeof fitScore === 'number' ? (
+                <span className="px-3 py-1 rounded-full text-xs font-black bg-[#06c006]/15 text-[#06c006] border border-[#06c006]/30 flex items-center gap-1.5">
+                  <CheckCircle2 size={13} /> {fitScore}% HIERO Fit Score
+                </span>
+              ) : (
+                <span className="px-3 py-1 rounded-full text-xs font-bold bg-black/5 dark:bg-white/5 text-[var(--color-muted)] border border-[var(--color-border)] flex items-center gap-1.5">
+                  <CheckCircle2 size={13} /> Direct Applicant
+                </span>
+              )}
             </div>
 
             <div className="flex flex-wrap items-center gap-4 mt-3 text-xs text-[var(--color-muted)] font-medium">
@@ -115,10 +130,12 @@ export default function CandidateProfile() {
             <div>
               <div className="text-xs font-bold text-[var(--color-text)] flex items-center gap-1.5">
                 Application Resume Document
-                <span className="text-[10px] bg-[#06c006]/20 text-[#06c006] px-2 py-0.5 rounded-full font-bold">Uploaded via Apply Now</span>
+                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${candidate.resumeUrl ? 'bg-[#06c006]/20 text-[#06c006]' : 'bg-black/10 dark:bg-white/10 text-[var(--color-muted)]'}`}>
+                  {candidate.resumeUrl ? 'Uploaded via Apply Now' : 'Not attached'}
+                </span>
               </div>
               <div className="text-xs font-mono font-semibold text-[#06c006] mt-0.5 truncate max-w-md">
-                📄 {resumeFileName}
+                📄 {resumeFileName || 'No resume file attached'}
               </div>
             </div>
           </div>
@@ -147,9 +164,17 @@ export default function CandidateProfile() {
         <Card className="p-4 text-center border" style={{ borderColor: 'var(--color-border)' }}>
           <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-muted)]">Academic CGPA</div>
           <div className="text-xl font-black text-[#06c006] mt-1" style={{ fontFamily: 'Outfit, sans-serif' }}>
-            {cgpa} <span className="text-xs text-[var(--color-muted)] font-normal">/ 10</span>
+            {typeof cgpa === 'number' ? (
+              <>
+                {cgpa} <span className="text-xs text-[var(--color-muted)] font-normal">/ 10</span>
+              </>
+            ) : (
+              <span className="text-base font-bold text-[var(--color-muted)]">—</span>
+            )}
           </div>
-          <div className="text-[10px] text-[var(--color-muted)] font-medium mt-0.5">{primaryEdu?.institution || 'IIT Madras'}</div>
+          <div className="text-[10px] text-[var(--color-muted)] font-medium mt-0.5 truncate">
+            {primaryEdu?.institution || (typeof cgpa === 'number' ? 'Verified Record' : 'No CGPA on file')}
+          </div>
         </Card>
 
         <Card className="p-4 text-center border" style={{ borderColor: 'var(--color-border)' }}>
@@ -157,23 +182,29 @@ export default function CandidateProfile() {
           <div className="text-xl font-black text-[var(--color-text)] mt-1" style={{ fontFamily: 'Outfit, sans-serif' }}>
             {projectCount} <span className="text-xs text-[var(--color-muted)] font-normal">Built</span>
           </div>
-          <div className="text-[10px] text-[var(--color-muted)] font-medium mt-0.5">Verified Portfolio</div>
+          <div className="text-[10px] text-[var(--color-muted)] font-medium mt-0.5">
+            {projectCount > 0 ? 'Verified Portfolio' : 'None on file'}
+          </div>
         </Card>
 
         <Card className="p-4 text-center border" style={{ borderColor: 'var(--color-border)' }}>
           <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-muted)]">Work Experience</div>
           <div className="text-xl font-black text-[var(--color-text)] mt-1" style={{ fontFamily: 'Outfit, sans-serif' }}>
-            {expCount} <span className="text-xs text-[var(--color-muted)] font-normal">Role</span>
+            {expCount} <span className="text-xs text-[var(--color-muted)] font-normal">{expCount === 1 ? 'Role' : 'Roles'}</span>
           </div>
-          <div className="text-[10px] text-[var(--color-muted)] font-medium mt-0.5">Internship / Full-time</div>
+          <div className="text-[10px] text-[var(--color-muted)] font-medium mt-0.5">
+            {expCount > 0 ? 'Internship / Full-time' : 'No prior roles'}
+          </div>
         </Card>
 
         <Card className="p-4 text-center border" style={{ borderColor: 'var(--color-border)' }}>
           <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-muted)]">Passing Year</div>
           <div className="text-xl font-black text-[#06c006] mt-1" style={{ fontFamily: 'Outfit, sans-serif' }}>
-            {candidate.passingYear || 2026}
+            {passingYear || '—'}
           </div>
-          <div className="text-[10px] text-[var(--color-muted)] font-medium mt-0.5">Graduating Class</div>
+          <div className="text-[10px] text-[var(--color-muted)] font-medium mt-0.5">
+            {passingYear ? 'Graduating Class' : 'Not specified'}
+          </div>
         </Card>
       </div>
 
@@ -190,11 +221,15 @@ export default function CandidateProfile() {
             Verified Skills & Competency
           </h2>
           <div className="space-y-4">
-            {candidate.skills.map((skill, i) => (
-              <div key={skill.name} className="animate-slide-up" style={{ animationDelay: `${i * 80}ms` }}>
-                <SkillBar name={skill.name} competency={skill.competency} verified={skill.verified} />
-              </div>
-            ))}
+            {candidate.skills && candidate.skills.length > 0 ? (
+              candidate.skills.map((skill, i) => (
+                <div key={skill.name} className="animate-slide-up" style={{ animationDelay: `${i * 80}ms` }}>
+                  <SkillBar name={skill.name} competency={skill.competency} verified={skill.verified} />
+                </div>
+              ))
+            ) : (
+              <p className="text-xs text-[var(--color-muted)] font-medium">No verified skills on file.</p>
+            )}
           </div>
         </Card>
 
@@ -205,22 +240,26 @@ export default function CandidateProfile() {
             Education & CGPA
           </h2>
           <div className="space-y-4">
-            {candidate.education.map((edu, i) => (
-              <div key={i} className="p-4 rounded-xl border" style={{ background: 'var(--color-surface-2)', borderColor: 'var(--color-border)' }}>
-                <div className="flex items-center justify-between">
-                  <p className="font-bold text-[var(--color-text)]">{edu.institution}</p>
-                  {(edu.cgpa || cgpa) && (
-                    <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-[#06c006]/20 text-[#06c006] border border-[#06c006]/30">
-                      CGPA: {edu.cgpa || cgpa}
-                    </span>
-                  )}
+            {candidate.education && candidate.education.length > 0 ? (
+              candidate.education.map((edu, i) => (
+                <div key={i} className="p-4 rounded-xl border" style={{ background: 'var(--color-surface-2)', borderColor: 'var(--color-border)' }}>
+                  <div className="flex items-center justify-between">
+                    <p className="font-bold text-[var(--color-text)]">{edu.institution}</p>
+                    {typeof edu.cgpa === 'number' && (
+                      <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-[#06c006]/20 text-[#06c006] border border-[#06c006]/30">
+                        CGPA: {edu.cgpa}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm text-[var(--color-muted)] font-medium mt-1">{edu.degree} in {edu.field}</p>
+                  <div className="flex items-center gap-4 mt-2 text-xs text-[var(--color-muted)] font-medium">
+                    <span>Batch: {edu.startYear} - {edu.endYear}</span>
+                  </div>
                 </div>
-                <p className="text-sm text-[var(--color-muted)] font-medium mt-1">{edu.degree} in {edu.field}</p>
-                <div className="flex items-center gap-4 mt-2 text-xs text-[var(--color-muted)] font-medium">
-                  <span>Batch: {edu.startYear} - {edu.endYear}</span>
-                </div>
-              </div>
-            ))}
+              ))
+            ) : (
+              <p className="text-xs text-[var(--color-muted)] font-medium">No education history on file.</p>
+            )}
           </div>
         </Card>
       </div>

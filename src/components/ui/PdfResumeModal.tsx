@@ -48,92 +48,65 @@ export default function PdfResumeModal({
     candidate?.name ||
     application?.studentName ||
     (application as any)?.student?.name ||
-    'Jaswanth Kumar';
+    'Applicant';
 
   const headline =
     candidate?.headline ||
     (application?.campusName
-      ? `${application?.department || 'B.Tech'} Student · ${application.campusName}`
-      : 'Full Stack & AI Systems Engineer');
+      ? `${application?.department || 'Graduate'} Student · ${application.campusName}`
+      : 'Applicant');
 
-  const email = candidate?.email || application?.email || 'student@college.edu';
-  const phone = candidate?.phone || application?.phone || '+91 98765 43210';
-  const location = candidate?.location || application?.campusLocation || 'India';
-  const cgpa = candidate?.cgpa || application?.cgpa || 8.8;
-  const matchScore = application?.matchScore || candidate?.score || 92;
+  const email = candidate?.email || application?.email || '—';
+  const phone = candidate?.phone || application?.phone || '—';
+  const location = candidate?.location || application?.campusLocation || '—';
+  const cgpa = candidate?.cgpa ?? application?.cgpa;
+  const matchScore = application?.matchScore ?? candidate?.score ?? (candidate as any)?.hieroScore;
   const institution =
     application?.campusName ||
     candidate?.education?.[0]?.institution ||
-    'Indian Institute of Technology';
-  const degree = candidate?.education?.[0]?.degree || 'B.Tech';
+    '';
+  const degree = candidate?.education?.[0]?.degree || '';
   const department =
     application?.department ||
     candidate?.education?.[0]?.field ||
-    'Computer Science & Engineering';
+    '';
 
   const skillsList =
-    candidate?.skills?.map(s => ({
-      name: s.name,
-      score: s.competency,
-      verified: s.verified ?? true,
-    })) ||
-    application?.matchingSkills?.map(s => ({
-      name: s.name,
-      score: s.score || 85,
-      verified: true,
-    })) || [
-      { name: 'Python', score: 95, verified: true },
-      { name: 'React', score: 92, verified: true },
-      { name: 'TypeScript', score: 90, verified: true },
-      { name: 'SQL', score: 88, verified: true },
-    ];
+    candidate?.skills && candidate.skills.length > 0
+      ? candidate.skills.map(s => ({
+          name: s.name,
+          score: s.competency,
+          verified: s.verified ?? true,
+        }))
+      : application?.matchingSkills && application.matchingSkills.length > 0
+      ? application.matchingSkills.map(s => ({
+          name: s.name,
+          score: s.score || 85,
+          verified: true,
+        }))
+      : [];
 
   const projectsList =
     (candidate?.projects && candidate.projects.length > 0)
       ? candidate.projects
       : ((application as any)?.projects && (application as any).projects.length > 0)
       ? (application as any).projects.map((p: any) => ({
-          title: p.title || 'Technical Innovation Project',
-          description: p.description || (p.tech ? `Core Technologies: ${p.tech}` : 'Verified software engineering and algorithm implementation.'),
-          skills: Array.isArray(p.skills) ? p.skills : (p.tech ? p.tech.split(',').map((s: string) => s.trim()) : ['Python', 'SQL']),
-          url: p.link || 'https://github.com'
+          title: p.title || 'Technical Project',
+          description: p.description || (p.tech ? `Core Technologies: ${p.tech}` : ''),
+          skills: Array.isArray(p.skills) ? p.skills : (p.tech ? p.tech.split(',').map((s: string) => s.trim()) : []),
+          url: p.link || p.url
         }))
-      : [
-          {
-            title: 'HIERO AI Distributed Job Matching Engine',
-            description: 'Architected sub-100ms vector search indexing and reactive candidate scoring pipeline handling 10k+ concurrent requests.',
-            skills: ['Python', 'FastAPI', 'Redis', 'PostgreSQL', 'Docker'],
-            url: 'https://github.com/hiero/matcher'
-          },
-          {
-            title: 'Autonomous Code Analysis & AST Sandbox',
-            description: 'Engineered multi-language code parser and containerized execution sandbox for deterministic unit verification.',
-            skills: ['TypeScript', 'Node.js', 'Docker', 'WebSockets'],
-            url: 'https://github.com/hiero/sandbox'
-          }
-        ];
+      : [];
 
   const experienceList =
     (candidate?.experience && candidate.experience.length > 0)
       ? candidate.experience
-      : [
-          {
-            company: 'TechNova Systems',
-            role: 'Software Engineering Intern',
-            startDate: 'May 2025',
-            endDate: 'Aug 2025',
-            description: 'Developed microservices in Python & TypeScript, optimized database queries reducing latency by 42%, and automated CI/CD pipelines.',
-            skills: ['Python', 'React', 'Docker', 'PostgreSQL']
-          }
-        ];
+      : [];
 
   const certificationsList =
     (candidate?.certifications && candidate.certifications.length > 0)
       ? candidate.certifications
-      : [
-          { name: 'AWS Certified Cloud Practitioner', issuer: 'Amazon Web Services', date: '2025' },
-          { name: 'HIERO Certified AI & Full Stack Specialist', issuer: 'HIERO Talent Platform', date: '2026' }
-        ];
+      : [];
 
   const handlePrint = () => {
     window.print();
@@ -288,10 +261,22 @@ export default function PdfResumeModal({
               <div className="text-right flex-shrink-0 flex flex-col items-end">
                 <div className="bg-slate-900 text-white px-3 py-1.5 rounded text-center border border-slate-800">
                   <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Academic CGPA</div>
-                  <div className="text-lg font-black text-emerald-400">{cgpa} <span className="text-xs text-slate-400">/ 10</span></div>
+                  <div className="text-lg font-black text-emerald-400">
+                    {typeof cgpa === 'number' ? (
+                      <>
+                        {cgpa} <span className="text-xs text-slate-400">/ 10</span>
+                      </>
+                    ) : (
+                      <span className="text-sm font-bold text-slate-400">—</span>
+                    )}
+                  </div>
                 </div>
                 <div className="text-[10px] font-bold text-slate-500 mt-1">
-                  Match Score: <span className="text-emerald-700 font-black">{matchScore}%</span>
+                  {typeof matchScore === 'number' ? (
+                    <>Match Score: <span className="text-emerald-700 font-black">{matchScore}%</span></>
+                  ) : (
+                    <span className="text-slate-500 font-medium">Direct Application</span>
+                  )}
                 </div>
               </div>
             </div>
@@ -305,21 +290,32 @@ export default function PdfResumeModal({
                   <h2 className="text-xs font-black uppercase tracking-wider text-slate-900 border-b border-slate-300 pb-1 mb-2.5 flex items-center gap-1.5">
                     <BookOpen size={13} className="text-emerald-700" /> Education
                   </h2>
-                  <div className="space-y-1.5">
-                    <div className="font-bold text-slate-900 text-[11px] leading-snug">
-                      {institution}
+                  {institution ? (
+                    <div className="space-y-1.5">
+                      <div className="font-bold text-slate-900 text-[11px] leading-snug">
+                        {institution}
+                      </div>
+                      {(degree || department) && (
+                        <div className="text-slate-700 font-semibold text-[11px]">
+                          {[degree, department].filter(Boolean).join(' in ')}
+                        </div>
+                      )}
+                      <div className="flex justify-between items-center text-[10px] text-slate-500 font-medium">
+                        <span>
+                          {candidate?.education?.[0]?.startYear && candidate?.education?.[0]?.endYear
+                            ? `${candidate.education[0].startYear} – ${candidate.education[0].endYear}`
+                            : 'Graduated'}
+                        </span>
+                        {typeof cgpa === 'number' && (
+                          <span className="font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
+                            CGPA {cgpa}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <div className="text-slate-700 font-semibold text-[11px]">
-                      {degree} in {department}
-                    </div>
-                    <div className="flex justify-between items-center text-[10px] text-slate-500 font-medium">
-                      <span>2022 – 2026</span>
-                      <span className="font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
-                        CGPA {cgpa}
-                      </span>
-                    </div>
-                    <p className="text-[10px] text-slate-500 mt-0.5">Top 5% Departmental Ranking</p>
-                  </div>
+                  ) : (
+                    <p className="text-[10px] text-slate-500">No education history on file.</p>
+                  )}
                 </div>
 
                 {/* Verified Technical Competencies */}
@@ -327,22 +323,26 @@ export default function PdfResumeModal({
                   <h2 className="text-xs font-black uppercase tracking-wider text-slate-900 border-b border-slate-300 pb-1 mb-2.5 flex items-center gap-1.5">
                     <Code2 size={13} className="text-emerald-700" /> Technical Skills
                   </h2>
-                  <div className="space-y-2">
-                    {skillsList.map(s => (
-                      <div key={s.name} className="space-y-0.5">
-                        <div className="flex justify-between items-center text-[10px]">
-                          <span className="font-bold text-slate-800">{s.name}</span>
-                          <span className="font-mono font-bold text-emerald-700">{s.score}% Verified</span>
+                  {skillsList.length > 0 ? (
+                    <div className="space-y-2">
+                      {skillsList.map(s => (
+                        <div key={s.name} className="space-y-0.5">
+                          <div className="flex justify-between items-center text-[10px]">
+                            <span className="font-bold text-slate-800">{s.name}</span>
+                            <span className="font-mono font-bold text-emerald-700">{s.score}% Verified</span>
+                          </div>
+                          <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
+                            <div
+                              className="h-full bg-emerald-600 rounded-full"
+                              style={{ width: `${s.score}%` }}
+                            />
+                          </div>
                         </div>
-                        <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
-                          <div
-                            className="h-full bg-emerald-600 rounded-full"
-                            style={{ width: `${s.score}%` }}
-                          />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-[10px] text-slate-500">No skills listed on file.</p>
+                  )}
                 </div>
 
                 {/* Certifications */}
@@ -350,17 +350,21 @@ export default function PdfResumeModal({
                   <h2 className="text-xs font-black uppercase tracking-wider text-slate-900 border-b border-slate-300 pb-1 mb-2 flex items-center gap-1.5">
                     <Award size={13} className="text-emerald-700" /> Certifications
                   </h2>
-                  <div className="space-y-2">
-                    {certificationsList.map((c, i) => (
-                      <div key={i} className="text-[10px] bg-slate-50 p-2 rounded border border-slate-200">
-                        <div className="font-bold text-slate-900 leading-tight">{c.name}</div>
-                        <div className="text-slate-500 font-medium mt-0.5 flex justify-between">
-                          <span>{c.issuer}</span>
-                          <span>{c.date}</span>
+                  {certificationsList.length > 0 ? (
+                    <div className="space-y-2">
+                      {certificationsList.map((c, i) => (
+                        <div key={i} className="text-[10px] bg-slate-50 p-2 rounded border border-slate-200">
+                          <div className="font-bold text-slate-900 leading-tight">{c.name}</div>
+                          <div className="text-slate-500 font-medium mt-0.5 flex justify-between">
+                            <span>{c.issuer}</span>
+                            <span>{c.date}</span>
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-[10px] text-slate-500">No certifications on file.</p>
+                  )}
                 </div>
 
                 {/* Security Verification Stamp */}
@@ -382,32 +386,36 @@ export default function PdfResumeModal({
                   <h2 className="text-xs font-black uppercase tracking-wider text-slate-900 border-b border-slate-300 pb-1 mb-2.5 flex items-center gap-1.5">
                     <Briefcase size={13} className="text-emerald-700" /> Work Experience & Internships
                   </h2>
-                  <div className="space-y-3">
-                    {experienceList.map((exp, idx) => (
-                      <div key={idx} className="space-y-1">
-                        <div className="flex justify-between items-baseline">
-                          <div className="font-bold text-slate-900 text-[11px]">{exp.role}</div>
-                          <span className="text-[10px] text-slate-500 font-medium">
-                            {exp.startDate} – {exp.endDate}
-                          </span>
-                        </div>
-                        <div className="text-[10px] font-bold text-emerald-800">{exp.company}</div>
-                        <p className="text-[10px] text-slate-600 leading-relaxed">{exp.description}</p>
-                        {exp.skills && exp.skills.length > 0 && (
-                          <div className="flex flex-wrap gap-1 pt-1">
-                            {exp.skills.map((sk: string) => (
-                              <span
-                                key={sk}
-                                className="bg-slate-100 text-slate-700 border border-slate-200 px-1.5 py-0.2 rounded text-[9px] font-semibold"
-                              >
-                                {sk}
-                              </span>
-                            ))}
+                  {experienceList.length > 0 ? (
+                    <div className="space-y-3">
+                      {experienceList.map((exp, idx) => (
+                        <div key={idx} className="space-y-1">
+                          <div className="flex justify-between items-baseline">
+                            <div className="font-bold text-slate-900 text-[11px]">{exp.role}</div>
+                            <span className="text-[10px] text-slate-500 font-medium">
+                              {exp.startDate} – {exp.endDate}
+                            </span>
                           </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+                          <div className="text-[10px] font-bold text-emerald-800">{exp.company}</div>
+                          <p className="text-[10px] text-slate-600 leading-relaxed">{exp.description}</p>
+                          {exp.skills && exp.skills.length > 0 && (
+                            <div className="flex flex-wrap gap-1 pt-1">
+                              {exp.skills.map((sk: string) => (
+                                <span
+                                  key={sk}
+                                  className="bg-slate-100 text-slate-700 border border-slate-200 px-1.5 py-0.2 rounded text-[9px] font-semibold"
+                                >
+                                  {sk}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-[10px] text-slate-500">No prior work experience listed.</p>
+                  )}
                 </div>
 
                 {/* Key Technical Projects */}
@@ -415,33 +423,39 @@ export default function PdfResumeModal({
                   <h2 className="text-xs font-black uppercase tracking-wider text-slate-900 border-b border-slate-300 pb-1 mb-2.5 flex items-center gap-1.5">
                     <FolderGit2 size={13} className="text-emerald-700" /> Key Technical Projects
                   </h2>
-                  <div className="space-y-3">
-                    {projectsList.map((proj: any, idx: number) => (
-                      <div key={idx} className="bg-slate-50 p-2.5 rounded border border-slate-200 space-y-1">
-                        <div className="flex justify-between items-baseline">
-                          <div className="font-bold text-slate-900 text-[11px]">{proj.title}</div>
-                          {proj.url && (
-                            <span className="text-[9px] font-bold text-emerald-700 flex items-center gap-0.5">
-                              Verified Code <ExternalLink size={9} />
-                            </span>
+                  {projectsList.length > 0 ? (
+                    <div className="space-y-3">
+                      {projectsList.map((proj: any, idx: number) => (
+                        <div key={idx} className="bg-slate-50 p-2.5 rounded border border-slate-200 space-y-1">
+                          <div className="flex justify-between items-baseline">
+                            <div className="font-bold text-slate-900 text-[11px]">{proj.title}</div>
+                            {proj.url && (
+                              <span className="text-[9px] font-bold text-emerald-700 flex items-center gap-0.5">
+                                Verified Code <ExternalLink size={9} />
+                              </span>
+                            )}
+                          </div>
+                          {proj.description && (
+                            <p className="text-[10px] text-slate-600 leading-relaxed">{proj.description}</p>
+                          )}
+                          {proj.skills && proj.skills.length > 0 && (
+                            <div className="flex flex-wrap gap-1 pt-1">
+                              {proj.skills.map((sk: string) => (
+                                <span
+                                  key={sk}
+                                  className="bg-white text-slate-800 border border-slate-300 px-1.5 py-0.5 rounded text-[9px] font-bold shadow-2xs"
+                                >
+                                  {sk}
+                                </span>
+                              ))}
+                            </div>
                           )}
                         </div>
-                        <p className="text-[10px] text-slate-600 leading-relaxed">{proj.description}</p>
-                        {proj.skills && proj.skills.length > 0 && (
-                          <div className="flex flex-wrap gap-1 pt-1">
-                            {proj.skills.map((sk: string) => (
-                              <span
-                                key={sk}
-                                className="bg-white text-slate-800 border border-slate-300 px-1.5 py-0.5 rounded text-[9px] font-bold shadow-2xs"
-                              >
-                                {sk}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-[10px] text-slate-500">No portfolio projects listed.</p>
+                  )}
                 </div>
 
                 {/* Professional Statement & Achievements */}
@@ -451,7 +465,10 @@ export default function PdfResumeModal({
                   </h2>
                   <p className="text-[10px] text-slate-600 leading-relaxed bg-slate-50 p-2.5 rounded border border-slate-200">
                     {candidate?.aboutMe ||
-                      `High-potential ${department} candidate with strong computer science fundamentals, algorithm mastery, and demonstrated hands-on delivery across distributed full-stack architecture and production ML workflows. Validated through HIERO Automated Code Quality and Adaptive Assessment engines.`}
+                      (candidate as any)?.about ||
+                      (headline
+                        ? `${name} is an active candidate profile on HIERO Connect.`
+                        : 'Official candidate profile on HIERO Connect.')}
                   </p>
                 </div>
               </div>

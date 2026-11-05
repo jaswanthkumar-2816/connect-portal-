@@ -134,12 +134,15 @@ function InterviewMailModal({
   useEffect(() => {
     if (!withInterview || interviewUrl || linkBusy) return;
     setLinkBusy(true);
-    createInterviewInvite(app.id).then(res => {
+    // The job goes with the request: the interview service writes the
+    // questions from the role, the skills asked for and the post itself,
+    // so a stylist and a receptionist are not asked the same ten things.
+    createInterviewInvite(app.id, { app, job, companyName }).then(res => {
       setLinkBusy(false);
       if (res.ok && res.url) setInterviewUrl(res.url);
       else setError(res.error || 'Could not create the interview link.');
     });
-  }, [withInterview, interviewUrl, linkBusy, app.id]);
+  }, [withInterview, interviewUrl, linkBusy, app, job, companyName]);
 
   useEffect(() => {
     const draft = composeInterviewEmail({
@@ -228,11 +231,11 @@ function InterviewMailModal({
           <span className="text-xs leading-relaxed text-white/70">
             <b className="text-white/90">Include an AI interview link</b>
             <br />
-            Ten questions from this job post, answered out loud. Works once, expires in a week.
+            Questions written from this job post, answered out loud. Works once, expires in a week.
             {linkBusy && (
               <>
                 <br />
-                <span className="text-white/40">Creating the link…</span>
+                <span className="text-white/40">Writing the questions for this role…</span>
               </>
             )}
             {interviewUrl && !linkBusy && (
@@ -593,19 +596,26 @@ export default function Applications() {
                       </button>
                     )}
 
-                    {app.interviewInvite && (
+                    {/* The way in to the interview result. It used to appear
+                        only when the application carried an interviewInvite,
+                        which the gateway used to stamp — the interview runs on
+                        its own service now and stamps nothing, so a recruiter
+                        who had sent an interview had no way to open what came
+                        back. Having sent the mail is enough to offer it; the
+                        report itself says whether they have taken it yet. */}
+                    {(app.interviewInvite || app.interviewMailSentAt || app.status === 'interview') && (
                       <button
                         onClick={() => setReportFor(app)}
                         title="See how the interview went"
                         className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-bold transition-all"
                         style={
-                          app.interviewInvite.status === 'started'
+                          app.interviewInvite?.status === 'started'
                             ? { background: 'rgba(99,102,241,0.12)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.3)' }
                             : { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.6)', border: '1px solid rgba(255,255,255,0.08)' }
                         }
                       >
                         <Mic size={12} />
-                        {app.interviewInvite.status === 'started' ? 'Interview taken' : 'Interview sent'}
+                        {app.interviewInvite?.status === 'started' ? 'Interview taken' : 'Interview'}
                       </button>
                     )}
 

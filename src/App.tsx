@@ -10,6 +10,7 @@ import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import NotFound from './pages/NotFound';
+import CandidateInterview from './pages/interview/CandidateInterview';
 
 // Layout
 import DashboardLayout from './components/layout/DashboardLayout';
@@ -70,8 +71,15 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+// A candidate who scanned a QR code at a counter is not visiting the portal.
+// They have one thing to do, often on someone else's patience, and four
+// seconds of branding is in the way of it — so the interview link skips the
+// splash entirely.
+const opensAnInterview = () =>
+  typeof window !== 'undefined' && window.location.pathname.startsWith('/interview/');
+
 export default function App() {
-  const [splashDone, setSplashDone] = useState(false);
+  const [splashDone, setSplashDone] = useState(opensAnInterview);
   const handleSplashDone = useCallback(() => setSplashDone(true), []);
   const restore = useAuthStore(s => s.restore);
 
@@ -92,6 +100,10 @@ export default function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+
+        {/* The candidate's interview. No account, no sign-in: the token in
+            the link is the credential, and it is good for one interview. */}
+        <Route path="/interview/:token" element={<CandidateInterview />} />
 
         {/* HIERO admin — its own area, not part of the company portal */}
         <Route path="/admin/login" element={<AdminLogin />} />

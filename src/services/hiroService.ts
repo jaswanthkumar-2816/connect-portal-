@@ -19,7 +19,8 @@ import type {
   PracticeSkillTrend,
 } from '../types';
 import { getAuthToken } from '../store/authStore';
-import { GATEWAY_URL } from '../lib/endpoints';
+import { GATEWAY_URL, INTERVIEW_API_URL } from '../lib/endpoints';
+import { candidateInterviewUrl } from '../lib/interviewLink';
 import {
   demoCandidates,
   demoApplications,
@@ -56,6 +57,41 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
     headers['x-api-key'] = CONNECT_API_KEY;
   }
   return headers;
+}
+
+/**
+ * The interview service, which is not the gateway and does not take the
+ * recruiter's gateway token. It authenticates the portal itself with the
+ * shared key — these are recruiter-side routes, and the candidate-side ones
+ * are reached from interviewService with a token instead.
+ */
+async function fetchInterviewApi(
+  path: string,
+  ms: number,
+  init?: RequestInit
+): Promise<Response | null> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  const token = getAuthToken();
+  try {
+    return await fetch(`${INTERVIEW_API_URL}${path}`, {
+      ...init,
+      headers: {
+        'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true',
+        // The recruiter's own token, which the interview service checks with
+        // the gateway. Never the shared API key: anything in a VITE_
+        // variable is compiled into the bundle every candidate downloads,
+        // and these routes mint interviews and return assessments.
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      signal: controller.signal,
+    });
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 async function fetchWithTimeout(url: string, ms = 2500, init?: RequestInit): Promise<Response | null> {
@@ -1171,15 +1207,31 @@ ${company}`,
   };
 }
 
+/** A score is never reported on its own — "why" is what makes it arguable. */
+export interface ScoreLine {
+  score: number | null;
+  why: string;
+}
+
+/** A positive or a concern, with the thing in the answers that led to it. */
+export interface ReportPoint {
+  point: string;
+  evidence: string;
+}
+
 export interface InterviewReport {
   sessionStatus: string;
   completedAt: string | null;
   questionsAsked: number;
   questionsAnswered: number;
   overall: number | null;
-  scores: Record<string, number | null>;
-  strengths: string[];
-  areasToImprove: string[];
+  /** How the overall score was arrived at. */
+  overallWhy: string;
+  scores: Record<string, ScoreLine>;
+  strengths: ReportPoint[];
+  concerns: ReportPoint[];
+  /** Whether they fit this role, argued rather than asserted. */
+  fit: { verdict: string; reasoning: string };
   recommendation: string;
   summary: string;
 }
@@ -1187,32 +1239,58 @@ export interface InterviewReport {
 /**
  * Create the candidate's interview link for an application.
  *
- * Nothing is uploaded: the questions come from the job the recruiter already
- * posted. The link is signed, expires in a week and works once.
+ * The job goes with it: role, employer, the skills the recruiter asked for
+ * and the text of the post. That is what the interview service writes the
+ * questions from, so a salon hiring a stylist and a clinic hiring a
+ * receptionist do not get the same ten questions.
+ *
+ * The link is signed by the interview service, expires in a week, works
+ * once, and points at /interview/:token in this portal.
  */
 export async function createInterviewInvite(
-  applicationId: string
+  applicationId: string,
+  context?: { app?: Application; job?: Opportunity | null; companyName?: string }
 ): Promise<{ ok: boolean; url?: string; error?: string }> {
-  const res = await fetchWithTimeout(`${GATEWAY_URL}/api/connect/interview/invite`, 45000, {
+  const { app, job } = context || {};
+  const skills = [
+    ...(job?.requiredSkills || []),
+    ...(job?.preferredSkills || []),
+  ].map(s => s.name);
+
+  const res = await fetchInterviewApi('/api/interview/invite', 60000, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ applicationId }),
+    body: JSON.stringify({
+      applicationId,
+      candidateName: app?.studentName || '',
+      role: app?.jobTitle || job?.title || '',
+      companyName: context?.companyName || app?.companyName || job?.companyName || '',
+      skills: skills.length ? skills : (app?.matchingSkills || []).map(s => s.name),
+      description: job?.description || '',
+    }),
   });
-  if (!res) return { ok: false, error: 'Cannot reach the HIERO gateway.' };
+
+  if (!res) return { ok: false, error: 'Cannot reach the interview service.' };
   const data = await res.json().catch(() => null);
   if (!res.ok || !data?.success) {
+    if (res.status === 401) {
+      return { ok: false, error: 'The interview service rejected this portal\u2019s key.' };
+    }
     return { ok: false, error: data?.error || 'Could not create the interview link.' };
   }
-  return { ok: true, url: data.url };
+  // The service builds the link on PORTAL_URL, which is right for the mail
+  // it will be pasted into but wrong when the portal is being reached on a
+  // tunnel or a preview build. Rebuilding it here keeps the candidate on the
+  // origin they are actually going to open.
+  return { ok: true, url: candidateInterviewUrl(data.url) };
 }
 
 /** The recruiter's view of a finished interview: scores and words only. */
 export async function getInterviewReport(
   applicationId: string
 ): Promise<{ state: string; report: InterviewReport | null }> {
-  const res = await fetchWithTimeout(
-    `${GATEWAY_URL}/api/connect/interview/report/${encodeURIComponent(applicationId)}`,
-    12000
+  const res = await fetchInterviewApi(
+    `/api/interview/report/${encodeURIComponent(applicationId)}`,
+    30000
   );
   if (!res || !res.ok) return { state: 'none', report: null };
   const data = await res.json().catch(() => null);

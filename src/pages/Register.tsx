@@ -4,7 +4,7 @@ import { INDUSTRY_CHOICES } from '../lib/industries';
 import { Link } from 'react-router-dom';
 import { useThemeStore } from '../store/themeStore';
 import Logo from '../components/ui/Logo';
-import { ArrowRight, Check, Sun, Moon, Shield } from 'lucide-react';
+import { ArrowRight, Check, Sun, Moon, Shield, Loader2 } from 'lucide-react';
 
 export default function Register() {
   const [loaded, setLoaded] = useState(false);
@@ -15,15 +15,51 @@ export default function Register() {
   const [error, setError] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [sending, setSending] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [statusText, setStatusText] = useState('');
   const [message, setMessage] = useState('');
   const [byEmail, setByEmail] = useState(false);
   const [industry, setIndustry] = useState('salon');
-
 
   useEffect(() => {
     const t = setTimeout(() => setLoaded(true), 80);
     return () => clearTimeout(t);
   }, []);
+
+  useEffect(() => {
+    if (!sending) {
+      setProgress(0);
+      setStatusText('');
+      return;
+    }
+
+    setProgress(15);
+    setStatusText('Connecting to gateway...');
+
+    const interval = setInterval(() => {
+      setProgress(prev => {
+        if (prev < 40) {
+          setStatusText('Connecting to gateway...');
+          return prev + 5;
+        }
+        if (prev < 68) {
+          setStatusText('Submitting company details...');
+          return prev + 3;
+        }
+        if (prev < 88) {
+          setStatusText('Queuing access request...');
+          return prev + 1.8;
+        }
+        if (prev < 96) {
+          setStatusText('Finalizing verification...');
+          return prev + 0.6;
+        }
+        return prev;
+      });
+    }, 350);
+
+    return () => clearInterval(interval);
+  }, [sending]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,6 +79,8 @@ export default function Register() {
     setSending(true);
     const res = await requestAccess(companyName.trim(), email.trim(), industry);
     setSending(false);
+    setProgress(100);
+    setStatusText('Submitted!');
     if (res.byEmail) {
       setByEmail(true);
       // The queue is not reachable on this gateway. Telling someone to try
@@ -227,14 +265,35 @@ export default function Register() {
             <button
               type="submit"
               disabled={sending || submitted}
-              className="hiero-btn-primary w-full justify-center py-3.5 font-bold text-sm shadow-[0_0_20px_rgba(6,192,6,0.2)] flex items-center gap-2"
+              className="hiero-btn-primary relative overflow-hidden w-full justify-center py-3.5 font-bold text-sm shadow-[0_0_20px_rgba(6,192,6,0.2)] flex items-center gap-2 transition-all cursor-pointer disabled:cursor-not-allowed"
             >
               {sending ? (
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <>
+                  <div
+                    className="absolute left-0 top-0 bottom-0 bg-black/15 dark:bg-black/25 transition-all duration-300 ease-out"
+                    style={{ width: `${Math.min(100, Math.round(progress))}%` }}
+                  />
+                  <span className="relative z-10 flex items-center gap-2 text-sm font-black text-black">
+                    <Loader2 size={16} className="animate-spin text-black" />
+                    <span>{statusText || 'Submitting...'}</span>
+                    <span className="font-mono text-xs bg-black/15 px-1.5 py-0.5 rounded">
+                      {Math.min(100, Math.round(progress))}%
+                    </span>
+                  </span>
+                </>
               ) : (
                 <>Request access <ArrowRight size={16} /></>
               )}
             </button>
+
+            {sending && progress > 30 && (
+              <p
+                className="text-[11px] text-center font-medium animate-fade-in mt-2"
+                style={{ color: isDark ? 'rgba(255,255,255,0.45)' : '#64748b' }}
+              >
+                Connecting to HIERO secure gateway — server may be waking up.
+              </p>
+            )}
 
             <p className="text-sm font-medium text-center" style={{ color: isDark ? 'rgba(255,255,255,0.45)' : '#64748b' }}>
               Already registered?{' '}

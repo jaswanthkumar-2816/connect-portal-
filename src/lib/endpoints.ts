@@ -26,3 +26,22 @@ export const GATEWAY_URL = resolveGatewayUrl();
 
 /** True when the portal is running against a developer's own machine. */
 export const isLocalGateway = GATEWAY_URL === LOCAL_GATEWAY;
+
+// ============================================================
+// Where the AI interview runs
+// ============================================================
+// Its own service, not the gateway: writing questions and reading answers
+// means waiting on Groq, and a rate limit there should not be able to take
+// sign-in and the inbox with it. Default is a local dev server on 4010.
+//
+// See interview-api/ in this repository.
+
+const LOCAL_INTERVIEW_API = 'http://localhost:4010';
+
+function resolveInterviewApiUrl(): string {
+  const configured = import.meta.env.VITE_INTERVIEW_API_URL;
+  if (configured) return configured.replace(/\/+$/, '');
+  return LOCAL_INTERVIEW_API;
+}
+
+export const INTERVIEW_API_URL = resolveInterviewApiUrl();
