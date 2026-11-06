@@ -25,6 +25,8 @@ import CandidateMatches from './pages/industry/CandidateMatches';
 import CandidateProfile from './pages/industry/CandidateProfile';
 import Applications from './pages/industry/Applications';
 import ModulePage from './pages/industry/ModulePage';
+import Employees from './pages/industry/Employees';
+import Attendance from './pages/industry/Attendance';
 import AccessRequests from './pages/industry/AccessRequests';
 import AdminLayout from './pages/admin/AdminLayout';
 import AdminLogin from './pages/admin/AdminLogin';
@@ -140,8 +142,8 @@ export default function App() {
           <Route path="access" element={<Navigate to="/admin/access" replace />} />
           {/* Workforce modules — mapped out, not built. ModulePage says so. */}
           <Route path="interviews" element={<ModulePage slug="interviews" />} />
-          <Route path="employees" element={<ModulePage slug="employees" />} />
-          <Route path="attendance" element={<ModulePage slug="attendance" />} />
+          <Route path="employees" element={<Employees />} />
+          <Route path="attendance" element={<Attendance />} />
           <Route path="shifts" element={<ModulePage slug="shifts" />} />
           <Route path="performance" element={<ModulePage slug="performance" />} />
           <Route path="payroll" element={<ModulePage slug="payroll" />} />

@@ -912,3 +912,14 @@
   scrollbar-width: none;
 }
 
+
+/* ============================================================
+   Text that follows the theme
+   ============================================================
+   Tailwind's text-white/40 is a fixed colour: on a light screen it is white
+   on near-white, which is how the admin page ended up with a heading nobody
+   could read. These say what the text is for and let the theme decide. */
+.t-strong { color: var(--color-text); }
+.t-dim    { color: var(--color-text-dim); }
+.t-muted  { color: var(--color-muted); }
+.t-faint  { color: var(--color-muted-2); }

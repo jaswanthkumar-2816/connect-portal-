@@ -13,7 +13,10 @@ function applyTheme(t: Theme) {
   localStorage.setItem('cp_theme', t);
 }
 
-const saved = (localStorage.getItem('cp_theme') as Theme) || 'dark';
+// Light by default. Connect is opened on a phone in a shop with the lights
+// on, not in a dark room — and a recruiter who has never heard of a theme
+// toggle should get the readable one without finding it.
+const saved = (localStorage.getItem('cp_theme') as Theme) || 'light';
 applyTheme(saved);
 
 export const useThemeStore = create<ThemeState>((set) => ({
