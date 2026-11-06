@@ -1,0 +1,46 @@
+# Render Blueprint — the interview service
+#
+# Render → New → Blueprint → this repository. It reads this file and creates
+# the service; the only thing it will ask you for is the Groq key.
+#
+# The portal itself stays on Vercel. This is the half that cannot live there:
+# a long-running process that holds the voice model in memory and keeps a
+# session while somebody is halfway through answering.
+services:
+  - type: web
+    name: hiero-interview-api
+    runtime: node
+    rootDir: interview-api
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      # The only one you have to supply. Copy it from the gateway's .env.
+      - key: GROQ_API_KEY
+        sync: false
+
+      # Not optional. The default in the code is llama-3.3-70b-versatile,
+      # which Groq has retired — it 404s, and the failure is silent: answers
+      # save, questions fall back to a generic set, and the report says the
+      # assessment could not be produced.
+      - key: GROQ_MODEL
+        value: openai/gpt-oss-120b
+
+      # Signs the invite tokens, which are the candidate's whole credential.
+      # Render generates it; changing it later kills every outstanding link.
+      - key: INTERVIEW_SECRET
+        generateValue: true
+
+      # Server-to-server callers only. Never goes near a browser.
+      - key: CONNECT_API_KEY
+        generateValue: true
+
+      - key: HIERO_GATEWAY_URL
+        value: https://hiero.in
+      - key: PORTAL_URL
+        value: https://connect.hiero.in
+      - key: ALLOWED_ORIGINS
+        value: https://connect.hiero.in
+      - key: QUESTION_COUNT
+        value: 8
