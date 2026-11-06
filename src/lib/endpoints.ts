@@ -37,11 +37,18 @@ export const isLocalGateway = GATEWAY_URL === LOCAL_GATEWAY;
 // See interview-api/ in this repository.
 
 const LOCAL_INTERVIEW_API = 'http://localhost:4010';
+const DEPLOYED_INTERVIEW_API = 'https://hiero-interview-api.onrender.com';
 
+// Resolved the same way as the gateway above, and for the same reason. This
+// used to fall back to localhost for every build, so a deployed portal whose
+// VITE_INTERVIEW_API_URL had not been set told the candidate's own phone to
+// run the interview. The page loaded perfectly and then did nothing, which is
+// a worse failure than not loading at all.
 function resolveInterviewApiUrl(): string {
   const configured = import.meta.env.VITE_INTERVIEW_API_URL;
   if (configured) return configured.replace(/\/+$/, '');
-  return LOCAL_INTERVIEW_API;
+  const host = typeof window === 'undefined' ? '' : window.location.hostname;
+  return LOCAL_HOSTS.has(host) ? LOCAL_INTERVIEW_API : DEPLOYED_INTERVIEW_API;
 }
 
 export const INTERVIEW_API_URL = resolveInterviewApiUrl();
