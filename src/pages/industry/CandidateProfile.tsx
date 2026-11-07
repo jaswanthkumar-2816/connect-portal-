@@ -89,14 +89,14 @@ export default function CandidateProfile() {
       {/* Profile Header Card */}
       <Card className={`p-8 hiero-hover-glow transition-all duration-600 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
         <div className="flex flex-col sm:flex-row items-start gap-6">
-          <div className="w-20 h-20 rounded-2xl bg-[#06c006]/15 border border-[#06c006]/30 flex items-center justify-center text-2xl font-black text-[#06c006] flex-shrink-0" style={{ fontFamily: 'Outfit, sans-serif' }}>
+          <div className="w-20 h-20 rounded-2xl bg-[#06c006]/15 border border-[#06c006]/30 flex items-center justify-center text-2xl font-black text-[#06c006] flex-shrink-0" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
             {candidate.name.split(' ').map(n => n[0]).join('')}
           </div>
 
           <div className="flex-1 min-w-0">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h1 className="text-2xl font-black text-[var(--color-text)]" style={{ fontFamily: 'Outfit, sans-serif' }}>{candidate.name}</h1>
+                <h1 className="text-2xl font-black text-[var(--color-text)]" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{candidate.name}</h1>
                 <p className="text-[var(--color-muted)] font-medium mt-0.5 text-sm">{candidate.headline}</p>
               </div>
 
@@ -163,7 +163,7 @@ export default function CandidateProfile() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <Card className="p-4 text-center border" style={{ borderColor: 'var(--color-border)' }}>
           <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-muted)]">Academic CGPA</div>
-          <div className="text-xl font-black text-[#06c006] mt-1" style={{ fontFamily: 'Outfit, sans-serif' }}>
+          <div className="text-xl font-black text-[#06c006] mt-1" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
             {typeof cgpa === 'number' ? (
               <>
                 {cgpa} <span className="text-xs text-[var(--color-muted)] font-normal">/ 10</span>
@@ -179,7 +179,7 @@ export default function CandidateProfile() {
 
         <Card className="p-4 text-center border" style={{ borderColor: 'var(--color-border)' }}>
           <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-muted)]">Major Projects</div>
-          <div className="text-xl font-black text-[var(--color-text)] mt-1" style={{ fontFamily: 'Outfit, sans-serif' }}>
+          <div className="text-xl font-black text-[var(--color-text)] mt-1" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
             {projectCount} <span className="text-xs text-[var(--color-muted)] font-normal">Built</span>
           </div>
           <div className="text-[10px] text-[var(--color-muted)] font-medium mt-0.5">
@@ -189,7 +189,7 @@ export default function CandidateProfile() {
 
         <Card className="p-4 text-center border" style={{ borderColor: 'var(--color-border)' }}>
           <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-muted)]">Work Experience</div>
-          <div className="text-xl font-black text-[var(--color-text)] mt-1" style={{ fontFamily: 'Outfit, sans-serif' }}>
+          <div className="text-xl font-black text-[var(--color-text)] mt-1" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
             {expCount} <span className="text-xs text-[var(--color-muted)] font-normal">{expCount === 1 ? 'Role' : 'Roles'}</span>
           </div>
           <div className="text-[10px] text-[var(--color-muted)] font-medium mt-0.5">
@@ -199,7 +199,7 @@ export default function CandidateProfile() {
 
         <Card className="p-4 text-center border" style={{ borderColor: 'var(--color-border)' }}>
           <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-muted)]">Passing Year</div>
-          <div className="text-xl font-black text-[#06c006] mt-1" style={{ fontFamily: 'Outfit, sans-serif' }}>
+          <div className="text-xl font-black text-[#06c006] mt-1" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
             {passingYear || '—'}
           </div>
           <div className="text-[10px] text-[var(--color-muted)] font-medium mt-0.5">
@@ -216,7 +216,7 @@ export default function CandidateProfile() {
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Skills & Competency */}
         <Card className={`p-6 hiero-hover-glow transition-all duration-600 delay-100 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-          <h2 className="text-lg font-bold text-[var(--color-text)] mb-5 flex items-center gap-2" style={{ fontFamily: 'Outfit, sans-serif' }}>
+          <h2 className="text-lg font-bold text-[var(--color-text)] mb-5 flex items-center gap-2" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
             <Award size={18} className="text-[#06c006]" />
             Verified Skills & Competency
           </h2>
@@ -235,7 +235,7 @@ export default function CandidateProfile() {
 
         {/* Education */}
         <Card className={`p-6 hiero-hover-glow transition-all duration-600 delay-200 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-          <h2 className="text-lg font-bold text-[var(--color-text)] mb-5 flex items-center gap-2" style={{ fontFamily: 'Outfit, sans-serif' }}>
+          <h2 className="text-lg font-bold text-[var(--color-text)] mb-5 flex items-center gap-2" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
             <GraduationCap size={18} className="text-[#06c006]" />
             Education & CGPA
           </h2>
@@ -267,7 +267,7 @@ export default function CandidateProfile() {
       {/* Projects Portfolio */}
       {candidate.projects && candidate.projects.length > 0 && (
         <Card className={`p-6 hiero-hover-glow transition-all duration-600 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-          <h2 className="text-lg font-bold text-[var(--color-text)] mb-4 flex items-center gap-2" style={{ fontFamily: 'Outfit, sans-serif' }}>
+          <h2 className="text-lg font-bold text-[var(--color-text)] mb-4 flex items-center gap-2" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
             <FolderGit2 size={18} className="text-[#06c006]" />
             Projects Portfolio ({candidate.projects.length})
           </h2>
@@ -292,7 +292,7 @@ export default function CandidateProfile() {
       {/* Work Experience */}
       {candidate.experience && candidate.experience.length > 0 && (
         <Card className={`p-6 hiero-hover-glow transition-all duration-600 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-          <h2 className="text-lg font-bold text-[var(--color-text)] mb-4 flex items-center gap-2" style={{ fontFamily: 'Outfit, sans-serif' }}>
+          <h2 className="text-lg font-bold text-[var(--color-text)] mb-4 flex items-center gap-2" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
             <Briefcase size={18} className="text-[#06c006]" />
             Work Experience & Internships
           </h2>

@@ -63,7 +63,7 @@ export default function Shortlisted() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-black text-[var(--color-text)]" style={{ fontFamily: 'Outfit, sans-serif' }}>
+          <h1 className="text-2xl font-black text-[var(--color-text)]" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
             Shortlisted
           </h1>
           <p className="text-sm text-[var(--color-muted)] mt-1 font-medium">
@@ -105,7 +105,7 @@ export default function Shortlisted() {
                 >
                   {getStatusLabel(app.status)}
                 </span>
-                <div className="text-sm font-black text-[#06c006]" style={{ fontFamily: 'Outfit, sans-serif' }}>
+                <div className="text-sm font-black text-[#06c006]" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
                   {typeof app.matchScore === 'number' ? `${Math.round(app.matchScore)}%` : '—'}
                 </div>
                 {app.resumeUrl && (

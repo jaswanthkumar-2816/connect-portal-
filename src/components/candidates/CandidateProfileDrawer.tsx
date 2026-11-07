@@ -21,7 +21,7 @@ function ScoreBadge({ score }: { score?: number }) {
   const n = Number(score);
   const color = n >= 85 ? '#06c006' : n >= 70 ? '#f59e0b' : '#64748b';
   return (
-    <span className="text-2xl font-black" style={{ color, fontFamily: 'Outfit, sans-serif' }}>
+    <span className="text-2xl font-black" style={{ color, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
       {Math.round(n)}%
     </span>
   );
@@ -144,7 +144,7 @@ export default function CandidateProfileDrawer({
         <header className="flex items-start gap-3 px-5 py-4 border-b flex-shrink-0" style={{ borderColor: 'var(--color-border)' }}>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-lg font-black text-[var(--color-text)] truncate" style={{ fontFamily: 'Outfit, sans-serif' }}>
+              <h2 className="text-lg font-black text-[var(--color-text)] truncate" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
                 {app.studentName || 'Applicant'}
               </h2>
               {verified && (
@@ -175,7 +175,7 @@ export default function CandidateProfileDrawer({
             </div>
             <div className="rounded-xl p-3 border" style={{ background: 'var(--color-surface-2)', borderColor: 'var(--color-border)' }}>
               <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-muted)]">CGPA</p>
-              <p className="text-2xl font-black text-[var(--color-text)] mt-1" style={{ fontFamily: 'Outfit, sans-serif' }}>
+              <p className="text-2xl font-black text-[var(--color-text)] mt-1" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
                 {typeof app.cgpa === 'number' ? app.cgpa.toFixed(2) : '—'}
               </p>
               <p className="text-[10px] text-[var(--color-muted)] mt-1 font-medium">

@@ -104,7 +104,7 @@ export default function CreateJob() {
   return (
     <div className="max-w-2xl space-y-6">
       <div>
-        <h1 className="text-2xl font-black text-[var(--color-text)]" style={{ fontFamily: 'Outfit, sans-serif' }}>Post opportunity</h1>
+        <h1 className="text-2xl font-black text-[var(--color-text)]" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>Post opportunity</h1>
         <p className="text-sm text-[var(--color-muted)] mt-1 font-medium">
           Published as {user?.companyName || 'your company'}. The skills you list are what applicants are scored against.
         </p>

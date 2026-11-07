@@ -61,7 +61,7 @@ export default function Pipeline() {
         <div>
           <h1
             className="text-2xl font-black text-[var(--color-text)] flex items-center gap-2.5"
-            style={{ fontFamily: 'Outfit, sans-serif' }}
+            style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}
           >
             <GitBranch className="text-[#06c006]" size={22} />
             Pipeline
@@ -148,7 +148,7 @@ export default function Pipeline() {
                           style={{
                             background: `${col.accent}18`,
                             color: col.text,
-                            fontFamily: 'Outfit, sans-serif',
+                            fontFamily: 'Plus Jakarta Sans, sans-serif',
                           }}
                         >
                           {initials}
@@ -156,7 +156,7 @@ export default function Pipeline() {
                         <div className="flex-1 min-w-0">
                           <p
                             className="text-sm font-bold text-[var(--color-text)] truncate"
-                            style={{ fontFamily: 'Outfit, sans-serif' }}
+                            style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}
                           >
                             {app.studentName || 'Applicant'}
                           </p>
@@ -166,7 +166,7 @@ export default function Pipeline() {
                         </div>
                         <span
                           className="text-xs font-black flex-shrink-0"
-                          style={{ color: scoreColor, fontFamily: 'Outfit, sans-serif' }}
+                          style={{ color: scoreColor, fontFamily: 'Plus Jakarta Sans, sans-serif' }}
                         >
                           {typeof app.matchScore === 'number' ? `${app.matchScore}%` : '—'}
                         </span>

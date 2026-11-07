@@ -46,7 +46,7 @@ function MatchRing({ score, name }: { score?: number; name?: string }) {
           background: 'var(--color-surface-2)',
           border: '1.5px solid var(--color-border)',
           color: 'var(--color-muted)',
-          fontFamily: 'Outfit, sans-serif',
+          fontFamily: 'Plus Jakarta Sans, sans-serif',
         }}
       >
         {initials}
@@ -58,7 +58,7 @@ function MatchRing({ score, name }: { score?: number; name?: string }) {
   return (
     <div
       className="w-12 h-12 rounded-xl flex items-center justify-center text-sm font-black flex-shrink-0"
-      style={{ background: bg, border: `1.5px solid ${color}35`, color, fontFamily: 'Outfit, sans-serif' }}
+      style={{ background: bg, border: `1.5px solid ${color}35`, color, fontFamily: 'Plus Jakarta Sans, sans-serif' }}
     >
       {score}%
     </div>
@@ -196,7 +196,7 @@ function InterviewMailModal({
           style={{ borderBottom: '1px solid var(--color-border)' }}
         >
           <div className="min-w-0">
-            <h3 className="text-base font-black t-strong" style={{ fontFamily: 'Outfit, sans-serif' }}>
+            <h3 className="text-base font-black t-strong" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
               Interview invitation
             </h3>
             <p className="text-xs t-muted mt-0.5 truncate">
@@ -441,7 +441,7 @@ export default function Applications() {
       {/* Header */}
       <div className="flex items-center justify-between animate-slide-up">
         <div>
-          <h1 className="text-2xl font-black t-strong" style={{ fontFamily: 'Outfit, sans-serif' }}>Applications</h1>
+          <h1 className="text-2xl font-black t-strong" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>Applications</h1>
           <p className="text-sm t-muted mt-1">{filtered.length} application{filtered.length !== 1 ? 's' : ''}</p>
         </div>
       </div>

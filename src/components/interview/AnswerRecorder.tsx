@@ -142,7 +142,7 @@ export default function AnswerRecorder({
                 />
                 <span
                   className="text-sm font-bold tabular-nums"
-                  style={{ color: 'var(--color-text)', fontFamily: 'Outfit, sans-serif' }}
+                  style={{ color: 'var(--color-text)', fontFamily: 'Plus Jakarta Sans, sans-serif' }}
                 >
                   {clock(seconds)}
                 </span>

@@ -48,7 +48,7 @@ export default function Jobs() {
       {/* Header */}
       <div className="flex items-center justify-between animate-slide-up">
         <div>
-          <h1 className="text-2xl font-black text-[var(--color-text)]" style={{ fontFamily: 'Outfit, sans-serif' }}>
+          <h1 className="text-2xl font-black text-[var(--color-text)]" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
             Jobs
           </h1>
           <p className="text-sm text-[var(--color-muted)] mt-1 font-medium">{opportunities.length} posted drive{opportunities.length === 1 ? '' : 's'}</p>
@@ -110,7 +110,7 @@ export default function Jobs() {
                 {/* Left: info */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3 mb-2 flex-wrap">
-                    <h3 className="text-base font-bold text-[var(--color-text)] group-hover:text-[#06c006] transition-colors" style={{ fontFamily: 'Outfit, sans-serif' }}>
+                    <h3 className="text-base font-bold text-[var(--color-text)] group-hover:text-[#06c006] transition-colors" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
                       {job.title}
                     </h3>
                     <span className={`text-[10px] font-bold px-2.5 py-1 rounded-lg uppercase tracking-wide ${getOpportunityTypeTagClass(job.type)}`}>
@@ -145,11 +145,11 @@ export default function Jobs() {
                 {/* Right: stats */}
                 <div className="flex items-center gap-6 sm:flex-col sm:items-end sm:gap-2 text-center sm:text-right">
                   <div>
-                    <div className="text-2xl font-black text-[var(--color-text)]" style={{ fontFamily: 'Outfit, sans-serif' }}>{job.applicantsCount}</div>
+                    <div className="text-2xl font-black text-[var(--color-text)]" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{job.applicantsCount}</div>
                     <div className="text-[10px] text-[var(--color-muted)] font-bold uppercase tracking-wide">Applicants</div>
                   </div>
                   <div>
-                    <div className="text-2xl font-black text-[#06c006]" style={{ fontFamily: 'Outfit, sans-serif' }}>{job.shortlistedCount}</div>
+                    <div className="text-2xl font-black text-[#06c006]" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{job.shortlistedCount}</div>
                     <div className="text-[10px] text-[var(--color-muted)] font-bold uppercase tracking-wide">Shortlisted</div>
                   </div>
                   <ChevronRight size={16} className="text-[var(--color-muted)] group-hover:text-[#06c006] group-hover:translate-x-0.5 transition-all hidden sm:block" />

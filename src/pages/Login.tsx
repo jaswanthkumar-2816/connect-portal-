@@ -137,7 +137,7 @@ export default function Login() {
 
         <div className="relative z-10 space-y-8">
           <div>
-            <h2 className="text-4xl font-black leading-tight" style={{ fontFamily: 'Outfit, sans-serif', color: isDark ? '#ffffff' : '#0f1117' }}>
+            <h2 className="text-4xl font-black leading-tight" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: isDark ? '#ffffff' : '#0f1117' }}>
               Post a drive.<br />
               <span className="hiero-gradient-text">See real applies.</span>
             </h2>
@@ -177,7 +177,7 @@ export default function Login() {
           </div>
 
           <div className="mb-8">
-            <h1 className="text-3xl font-black" style={{ fontFamily: 'Outfit, sans-serif', color: isDark ? '#ffffff' : '#0f1117' }}>HR sign in</h1>
+            <h1 className="text-3xl font-black" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: isDark ? '#ffffff' : '#0f1117' }}>HR sign in</h1>
             <p className="mt-2 text-sm font-medium" style={{ color: isDark ? 'rgba(255,255,255,0.45)' : '#64748b' }}>
               Accounts are created by HIERO. There is no public signup.
             </p>

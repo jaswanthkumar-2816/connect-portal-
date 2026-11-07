@@ -177,7 +177,7 @@ export default function AccessRequests() {
         <div>
           <h1
             className="text-2xl font-black"
-            style={{ fontFamily: 'Outfit, sans-serif', color: 'var(--color-text)' }}
+            style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: 'var(--color-text)' }}
           >
             Access requests
           </h1>
@@ -407,7 +407,7 @@ export default function AccessRequests() {
           >
             <h3
               className="text-lg font-black mb-1"
-              style={{ fontFamily: 'Outfit, sans-serif', color: 'var(--color-text)' }}
+              style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: 'var(--color-text)' }}
             >
               Reject {rejecting.companyName}?
             </h3>
@@ -459,7 +459,7 @@ export default function AccessRequests() {
           >
             <h3
               className="text-lg font-black mb-1"
-              style={{ fontFamily: 'Outfit, sans-serif', color: 'var(--color-text)' }}
+              style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: 'var(--color-text)' }}
             >
               Remove {removing.companyName}?
             </h3>

@@ -192,7 +192,7 @@ export default function CompanyProfile() {
       {/* ── Top Header ── */}
       <div className="flex items-center justify-between animate-slide-up">
         <div>
-          <h1 className="text-3xl font-black text-[var(--color-text)]" style={{ fontFamily: 'Outfit, sans-serif' }}>
+          <h1 className="text-3xl font-black text-[var(--color-text)]" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
             Company Profile
           </h1>
           <p className="text-sm text-[var(--color-muted)] mt-1 font-medium">
@@ -252,7 +252,7 @@ export default function CompanyProfile() {
                     background: 'linear-gradient(135deg, rgba(6,192,6,0.2) 0%, rgba(6,192,6,0.08) 100%)',
                     borderColor: 'var(--color-card)',
                     color: '#06c006',
-                    fontFamily: 'Outfit, sans-serif'
+                    fontFamily: 'Plus Jakarta Sans, sans-serif'
                   }}
                 >
                   {company?.logoUrl || formData.logoUrl ? (
@@ -279,7 +279,7 @@ export default function CompanyProfile() {
 
               <div className="pb-1">
                 <div className="flex items-center gap-2">
-                  <h2 className="text-2xl sm:text-3xl font-black text-[var(--color-text)] tracking-tight" style={{ fontFamily: 'Outfit, sans-serif' }}>
+                  <h2 className="text-2xl sm:text-3xl font-black text-[var(--color-text)] tracking-tight" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
                     {displayName}
                   </h2>
                 </div>
@@ -421,7 +421,7 @@ export default function CompanyProfile() {
           
           <div className="flex items-center justify-between border-b border-[var(--color-border)] pb-4">
             <div>
-              <h3 className="text-lg font-black text-[var(--color-text)]" style={{ fontFamily: 'Outfit, sans-serif' }}>
+              <h3 className="text-lg font-black text-[var(--color-text)]" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
                 Edit Organization Profile
               </h3>
               <p className="text-xs text-[var(--color-muted)] font-medium">Update your company details, logo, tech stack, and benefits.</p>
@@ -442,7 +442,7 @@ export default function CompanyProfile() {
             <div className="flex flex-col sm:flex-row items-center gap-5">
               {/* Preview Avatar */}
               <div className="w-20 h-20 rounded-2xl border-2 border-[#06c006]/40 flex items-center justify-center overflow-hidden flex-shrink-0 bg-black/10"
-                style={{ fontFamily: 'Outfit, sans-serif' }}>
+                style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
                 {formData.logoUrl ? (
                   <img src={formData.logoUrl} alt="Company Logo" className="w-full h-full object-cover" />
                 ) : (

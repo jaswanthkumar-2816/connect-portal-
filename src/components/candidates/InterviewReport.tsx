@@ -156,7 +156,7 @@ export default function InterviewReport({
               <Mic size={15} className="text-indigo-300" />
             </div>
             <div className="min-w-0">
-              <h3 className="text-base font-black text-white truncate" style={{ fontFamily: 'Outfit, sans-serif' }}>
+              <h3 className="text-base font-black text-white truncate" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
                 {app.studentName || 'Candidate'}
               </h3>
               <p className="text-[11px] text-white/40 truncate">{app.jobTitle || 'Interview'}</p>
@@ -202,7 +202,7 @@ export default function InterviewReport({
                   >
                     <span
                       className="text-xl font-black leading-none"
-                      style={{ color: scoreColour(report.overall), fontFamily: 'Outfit, sans-serif' }}
+                      style={{ color: scoreColour(report.overall), fontFamily: 'Plus Jakarta Sans, sans-serif' }}
                     >
                       {report.overall}
                     </span>

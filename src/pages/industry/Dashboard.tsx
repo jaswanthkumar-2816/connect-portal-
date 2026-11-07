@@ -49,7 +49,7 @@ function MatchRing({ score }: { score?: number }) {
           ? 'bg-[#06c006]/15 border border-[#06c006]/40 text-[#06c006]'
           : 'bg-black/5 dark:bg-white/10 border border-slate-300 dark:border-slate-700 text-[var(--color-muted)]'
       }`}
-      style={{ fontFamily: 'Outfit, sans-serif' }}
+      style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}
     >
       {typeof score === 'number' ? `${score}%` : '—'}
     </div>
@@ -124,7 +124,7 @@ export default function Dashboard() {
         <div className="flex items-center gap-3.5">
           <div
             className="w-12 h-12 rounded-xl bg-[#06c006]/15 border border-[#06c006]/30 flex items-center justify-center text-[#06c006] text-lg font-black flex-shrink-0"
-            style={{ fontFamily: 'Outfit, sans-serif' }}
+            style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}
           >
             {companyInitials}
           </div>
@@ -137,7 +137,7 @@ export default function Dashboard() {
                 <ShieldCheck size={11} /> Verified Employer
               </span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight mt-0.5" style={{ fontFamily: 'Outfit, sans-serif' }}>
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight mt-0.5" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
               {companyDisplayName}
             </h1>
           </div>
@@ -198,7 +198,7 @@ export default function Dashboard() {
                 <Briefcase size={15} className="text-[var(--color-muted)]" />
               </div>
             </div>
-            <div className="text-3xl font-black text-[var(--color-text)] font-['Outfit']">
+            <div className="text-3xl font-black text-[var(--color-text)]">
               <AnimCounter target={activeJobs.length} />
             </div>
             <p className="text-[11px] text-[var(--color-muted)] mt-1 font-medium">Published opportunities</p>
@@ -215,7 +215,7 @@ export default function Dashboard() {
                 <FileText size={15} className="text-[#06c006]" />
               </div>
             </div>
-            <div className="text-3xl font-black text-[var(--color-text)] font-['Outfit']">
+            <div className="text-3xl font-black text-[var(--color-text)]">
               <AnimCounter target={stats.totalApplications} />
             </div>
             <p className="text-[11px] text-[#06c006] mt-1 font-medium">Received candidates</p>
@@ -232,7 +232,7 @@ export default function Dashboard() {
                 <Star size={15} className="text-[var(--color-muted)]" />
               </div>
             </div>
-            <div className="text-3xl font-black text-[var(--color-text)] font-['Outfit']">
+            <div className="text-3xl font-black text-[var(--color-text)]">
               <AnimCounter target={stats.shortlistedCandidates} />
             </div>
             <p className="text-[11px] text-[var(--color-muted)] mt-1 font-medium">Qualified candidates</p>
@@ -249,7 +249,7 @@ export default function Dashboard() {
                 <Award size={15} className="text-[#06c006]" />
               </div>
             </div>
-            <div className="text-3xl font-black text-[#06c006] font-['Outfit']">
+            <div className="text-3xl font-black text-[#06c006]">
               <AnimCounter target={stats.hires} />
             </div>
             <p className="text-[11px] text-[#06c006] mt-1 font-medium">Successful placements</p>
@@ -316,7 +316,7 @@ export default function Dashboard() {
                     >
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 mb-1">
-                          <h4 className="text-sm font-bold text-[var(--color-text)] truncate" style={{ fontFamily: 'Outfit, sans-serif' }}>
+                          <h4 className="text-sm font-bold text-[var(--color-text)] truncate" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
                             {job.title}
                           </h4>
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-black/10 dark:bg-white/10 text-[var(--color-muted)] uppercase border border-[var(--color-border)]">
@@ -410,7 +410,7 @@ export default function Dashboard() {
                       style={{ background: 'var(--color-surface-2)', borderColor: 'var(--color-border)' }}
                     >
                       <span className="text-[10px] font-bold text-[var(--color-muted)] uppercase tracking-wider">{stage.label}</span>
-                      <p className="text-xl font-black text-[var(--color-text)] font-['Outfit'] mt-1">{stage.count}</p>
+                      <p className="text-xl font-black text-[var(--color-text)] mt-1">{stage.count}</p>
                     </Link>
                   ))}
                 </div>
@@ -472,6 +472,11 @@ export default function Dashboard() {
               </h3>
 
               <div className="space-y-2.5">
+                {stats.topSkillsDemand.length === 0 && (
+                  <p className="text-xs" style={{ color: 'var(--color-muted)' }}>
+                    Nothing yet — this fills in from the skills you list on a job post.
+                  </p>
+                )}
                 {stats.topSkillsDemand.slice(0, 3).map((item) => (
                   <div key={item.skill}>
                     <div className="flex items-center justify-between mb-1 text-xs">

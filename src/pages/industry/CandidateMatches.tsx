@@ -138,7 +138,7 @@ export default function CandidateMatches() {
       <div className={`transition-all duration-600 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
         <h1
           className="text-[28px] leading-tight font-black tracking-tight text-[var(--color-text)]"
-          style={{ fontFamily: 'Outfit, sans-serif' }}
+          style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}
         >
           Matched Candidates
         </h1>

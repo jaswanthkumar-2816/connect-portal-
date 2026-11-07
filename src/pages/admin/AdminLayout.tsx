@@ -43,7 +43,7 @@ export default function AdminLayout() {
             <ShieldCheck size={15} style={{ color: 'var(--color-accent)' }} />
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-black leading-tight" style={{ fontFamily: 'Outfit, sans-serif' }}>
+            <p className="text-sm font-black leading-tight" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
               HIERO Admin
             </p>
             <p className="text-[11px] truncate" style={{ color: 'var(--color-muted)' }}>

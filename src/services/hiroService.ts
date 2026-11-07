@@ -1674,30 +1674,33 @@ export async function getDashboardStats(companyId: string): Promise<DashboardSta
   const interviews = apps.filter(a => a.status === 'interview').length;
   const hires = apps.filter(a => a.status === 'selected').length;
 
-  // Calculate top skills demand
+  // What skills your own job posts ask for, and how many of them ask.
+  //
+  // Two things were wrong here. A skill arrives either as a string or as
+  // { name }, depending on whether the post came through the portal or the
+  // API — reading .name on a string gave a row labelled "undefined". And the
+  // share was clamped between 60 and 95, so a skill on every single post
+  // showed as 95% and one on a third showed as 60%: numbers that looked
+  // precise and meant nothing.
   const skillCount: Record<string, number> = {};
   opps.forEach(o => {
-    o.requiredSkills?.forEach(s => {
-      skillCount[s.name] = (skillCount[s.name] || 0) + 1;
+    (o.requiredSkills || []).forEach((raw: unknown) => {
+      const name = typeof raw === 'string' ? raw : (raw as { name?: string })?.name;
+      const skill = String(name || '').trim();
+      if (!skill) return;
+      skillCount[skill] = (skillCount[skill] || 0) + 1;
     });
   });
 
-  let topSkillsDemand = Object.entries(skillCount)
+  // No invented fallback. A salon with no skills on its posts was being shown
+  // Python, React and SQL as its own hiring demand.
+  const topSkillsDemand = Object.entries(skillCount)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 4)
     .map(([skill, count]) => ({
       skill,
-      percentage: Math.min(95, Math.max(60, Math.round((count / Math.max(1, opps.length)) * 100))),
+      percentage: Math.round((count / Math.max(1, opps.length)) * 100),
     }));
-
-  if (topSkillsDemand.length === 0) {
-    topSkillsDemand = [
-      { skill: 'Python', percentage: 92 },
-      { skill: 'React', percentage: 88 },
-      { skill: 'SQL', percentage: 85 },
-      { skill: 'Machine Learning', percentage: 78 },
-    ];
-  }
 
   return {
     activeJobs,

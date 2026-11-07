@@ -116,7 +116,7 @@ export default function ChangePassword() {
 
         <h1
           className="text-xl font-black mb-1.5"
-          style={{ fontFamily: 'Outfit, sans-serif', color: 'var(--color-text)' }}
+          style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: 'var(--color-text)' }}
         >
           Choose your own password
         </h1>

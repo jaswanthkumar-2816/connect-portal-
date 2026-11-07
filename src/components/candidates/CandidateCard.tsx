@@ -30,7 +30,7 @@ export default function CandidateCard({ candidate, matchScore, matchingSkills, m
               <Link
                 to={`/industry/candidate/${candidate.id}`}
                 className="text-lg font-bold text-[var(--color-text)] hover:text-[#06c006] transition-colors"
-                style={{ fontFamily: 'Outfit, sans-serif' }}
+                style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}
               >
                 {candidate.name}
               </Link>

@@ -84,7 +84,7 @@ export default function LandingPage() {
       <section className="relative z-10 pt-20 pb-24 px-6 text-center max-w-4xl mx-auto flex flex-col items-center">
         <h1
           className="text-4xl sm:text-6xl lg:text-7xl font-normal leading-[1.08] tracking-tight mb-6"
-          style={{ fontFamily: 'Outfit, sans-serif', color: isDark ? '#ffffff' : '#000000' }}
+          style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: isDark ? '#ffffff' : '#000000' }}
         >
           Connect Industry with{' '}
           <span className="hiero-gradient-text font-normal">Verified Talent</span>
@@ -126,7 +126,7 @@ export default function LandingPage() {
           <span className="text-xs font-bold tracking-widest uppercase text-[#06c006]">Workflow</span>
           <h2
             className="text-2xl sm:text-3xl font-normal mt-2 mb-12"
-            style={{ fontFamily: 'Outfit, sans-serif', color: isDark ? '#ffffff' : '#000000' }}
+            style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: isDark ? '#ffffff' : '#000000' }}
           >
             Three simple steps to verified recruitment
           </h2>
@@ -142,7 +142,7 @@ export default function LandingPage() {
               }}
             >
               <div className="text-xs font-extrabold text-[#06c006] uppercase tracking-wider mb-2">STEP 01</div>
-              <h3 className="text-base font-bold mb-2" style={{ fontFamily: 'Outfit, sans-serif', color: isDark ? '#ffffff' : '#000000' }}>POST JOB</h3>
+              <h3 className="text-base font-bold mb-2" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: isDark ? '#ffffff' : '#000000' }}>POST JOB</h3>
               <p className="text-xs leading-relaxed font-medium" style={{ color: isDark ? 'rgba(255,255,255,0.45)' : '#475569' }}>
                 Define the role and required competency skills.
               </p>
@@ -157,7 +157,7 @@ export default function LandingPage() {
               }}
             >
               <div className="text-xs font-extrabold text-[#06c006] uppercase tracking-wider mb-2">STEP 02</div>
-              <h3 className="text-base font-bold mb-2" style={{ fontFamily: 'Outfit, sans-serif', color: isDark ? '#ffffff' : '#000000' }}>FIND MATCHED TALENT</h3>
+              <h3 className="text-base font-bold mb-2" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: isDark ? '#ffffff' : '#000000' }}>FIND MATCHED TALENT</h3>
               <p className="text-xs leading-relaxed font-medium" style={{ color: isDark ? 'rgba(255,255,255,0.6)' : '#334155' }}>
                 HIERO Skill Intelligence surfaces verified competency matches.
               </p>
@@ -173,7 +173,7 @@ export default function LandingPage() {
               }}
             >
               <div className="text-xs font-extrabold text-[#06c006] uppercase tracking-wider mb-2">STEP 03</div>
-              <h3 className="text-base font-bold mb-2" style={{ fontFamily: 'Outfit, sans-serif', color: isDark ? '#ffffff' : '#000000' }}>SHORTLIST</h3>
+              <h3 className="text-base font-bold mb-2" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: isDark ? '#ffffff' : '#000000' }}>SHORTLIST</h3>
               <p className="text-xs leading-relaxed font-medium" style={{ color: isDark ? 'rgba(255,255,255,0.45)' : '#475569' }}>
                 Review candidate skill gaps and manage hiring pipeline.
               </p>
@@ -188,7 +188,7 @@ export default function LandingPage() {
           <span className="text-xs font-bold tracking-widest uppercase text-[#06c006]">Competency Matching</span>
           <h2
             className="text-2xl sm:text-3xl font-normal mt-2 mb-10"
-            style={{ fontFamily: 'Outfit, sans-serif', color: isDark ? '#ffffff' : '#000000' }}
+            style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: isDark ? '#ffffff' : '#000000' }}
           >
             Find the right candidate beyond the resume
           </h2>
@@ -205,12 +205,12 @@ export default function LandingPage() {
           >
             <div className="flex items-center justify-between mb-6 pb-4" style={{ borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'}` }}>
               <div>
-                <h3 className="text-lg font-bold" style={{ fontFamily: 'Outfit, sans-serif', color: isDark ? '#ffffff' : '#000000' }}>Candidate Competency Match</h3>
+                <h3 className="text-lg font-bold" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: isDark ? '#ffffff' : '#000000' }}>Candidate Competency Match</h3>
                 <p className="text-xs font-medium mt-0.5" style={{ color: isDark ? 'rgba(255,255,255,0.45)' : '#64748b' }}>Software Developer Requirement</p>
               </div>
               <div className="flex items-center gap-2 bg-[#06c006]/15 border border-[#06c006]/30 px-4 py-2 rounded-2xl">
                 <Sparkles size={16} className="text-[#06c006]" />
-                <span className="text-base font-black text-[#06c006]" style={{ fontFamily: 'Outfit, sans-serif' }}>94% MATCH</span>
+                <span className="text-base font-black text-[#06c006]" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>94% MATCH</span>
               </div>
             </div>
 
@@ -238,7 +238,7 @@ export default function LandingPage() {
         <div className="max-w-3xl mx-auto text-center">
           <h2
             className="text-2xl sm:text-4xl font-normal mb-4"
-            style={{ fontFamily: 'Outfit, sans-serif', color: isDark ? '#ffffff' : '#000000' }}
+            style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: isDark ? '#ffffff' : '#000000' }}
           >
             Build better teams with skill intelligence.
           </h2>

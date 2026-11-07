@@ -137,7 +137,7 @@ export default function Register() {
 
         <div className="relative z-10 space-y-8">
           <div>
-            <h2 className="text-4xl font-black leading-tight" style={{ fontFamily: 'Outfit, sans-serif', color: isDark ? '#ffffff' : '#0f1117' }}>
+            <h2 className="text-4xl font-black leading-tight" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: isDark ? '#ffffff' : '#0f1117' }}>
               Register your <br />
               <span className="hiero-gradient-text">company account.</span>
             </h2>
@@ -175,7 +175,7 @@ export default function Register() {
           </div>
 
           <div className="mb-6">
-            <h1 className="text-3xl font-black tracking-tight" style={{ fontFamily: 'Outfit, sans-serif', color: isDark ? '#ffffff' : '#0f1117' }}>
+            <h1 className="text-3xl font-black tracking-tight" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: isDark ? '#ffffff' : '#0f1117' }}>
               Request access
             </h1>
             <p className="mt-1.5 text-sm font-medium" style={{ color: isDark ? 'rgba(255,255,255,0.45)' : '#64748b' }}>

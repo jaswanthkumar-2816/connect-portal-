@@ -136,7 +136,7 @@ export default function ModulePage({ slug }: { slug: ModuleSlug }) {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-black" style={{ fontFamily: 'Outfit, sans-serif', color: 'var(--color-text)' }}>
+              <h1 className="text-2xl font-black" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: 'var(--color-text)' }}>
                 {mod.title}
               </h1>
               <span

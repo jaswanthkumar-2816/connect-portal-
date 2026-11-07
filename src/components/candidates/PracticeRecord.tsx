@@ -25,7 +25,7 @@ function SkillTrendRow({ trend }: { trend: PracticeSkillTrend }) {
     <div className="space-y-1">
       <div className="flex items-baseline justify-between gap-2">
         <span className="text-sm font-semibold text-[var(--color-text)] truncate">{trend.name}</span>
-        <span className="text-xs font-bold whitespace-nowrap" style={{ fontFamily: 'Outfit, sans-serif' }}>
+        <span className="text-xs font-bold whitespace-nowrap" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
           <span className="text-[var(--color-muted)]">{fmt(trend.first)}</span>
           <ArrowRight size={10} className="inline mx-1 text-[var(--color-muted-2)]" />
           <span style={{ color: improved ? 'var(--color-accent)' : 'var(--color-text)' }}>
@@ -84,7 +84,7 @@ function RecordBody({ record }: { record: PracticeRecordData }) {
           borderColor: improved ? 'var(--color-accent-border)' : 'var(--color-border)',
         }}
       >
-        <div className="flex items-baseline gap-2" style={{ fontFamily: 'Outfit, sans-serif' }}>
+        <div className="flex items-baseline gap-2" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
           {multiple && (
             <>
               <span className="text-xl font-black text-[var(--color-muted)]">{fmt(record.firstScore)}</span>
@@ -169,7 +169,7 @@ export default function PracticeRecord({ record, loading, variant = 'drawer' }: 
       <>
         <h2
           className="text-lg font-bold text-[var(--color-text)] mb-5 flex items-center gap-2"
-          style={{ fontFamily: 'Outfit, sans-serif' }}
+          style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}
         >
           <Dumbbell size={18} className="text-[#06c006]" />
           Practice record

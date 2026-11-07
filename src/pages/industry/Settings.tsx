@@ -75,7 +75,7 @@ export default function Settings() {
     <div className="space-y-6 animate-slide-up">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-black text-[var(--color-text)] flex items-center gap-2.5" style={{ fontFamily: 'Outfit, sans-serif' }}>
+        <h1 className="text-2xl font-black text-[var(--color-text)] flex items-center gap-2.5" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
           <SettingsIcon className="text-[#06c006]" size={22} />
           Settings
         </h1>
@@ -105,7 +105,7 @@ export default function Settings() {
         <div className="flex-1 space-y-4">
           {section === 'account' && (
             <div className="cp-card rounded-2xl p-6 space-y-5 animate-fade-in">
-              <h2 className="text-base font-bold text-[var(--color-text)]" style={{ fontFamily: 'Outfit, sans-serif' }}>Account Details</h2>
+              <h2 className="text-base font-bold text-[var(--color-text)]" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>Account Details</h2>
               <div className="grid sm:grid-cols-2 gap-4">
                 <FieldRow label="Full Name" defaultValue={user?.name} />
                 <FieldRow label="Email" defaultValue={user?.email} type="email" />
@@ -126,7 +126,7 @@ export default function Settings() {
 
           {section === 'notifications' && (
             <div className="cp-card rounded-2xl p-6 space-y-4 animate-fade-in">
-              <h2 className="text-base font-bold text-[var(--color-text)]" style={{ fontFamily: 'Outfit, sans-serif' }}>Notification Preferences</h2>
+              <h2 className="text-base font-bold text-[var(--color-text)]" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>Notification Preferences</h2>
               <div className="space-y-2">
                 {NOTIF_OPTIONS.map((item, i) => (
                   <div
@@ -149,7 +149,7 @@ export default function Settings() {
           {section === 'security' && (
             <div className="space-y-4 animate-fade-in">
               <div className="cp-card rounded-2xl p-6 space-y-4">
-                <h2 className="text-base font-bold text-[var(--color-text)]" style={{ fontFamily: 'Outfit, sans-serif' }}>Change Password</h2>
+                <h2 className="text-base font-bold text-[var(--color-text)]" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>Change Password</h2>
                 <FieldRow label="Current Password" type="password" />
                 <FieldRow label="New Password" type="password" />
                 <FieldRow label="Confirm New Password" type="password" />
@@ -158,7 +158,7 @@ export default function Settings() {
 
               {/* Danger Zone */}
               <div className="rounded-2xl p-6 space-y-3 bg-red-500/5 border border-red-500/20">
-                <h2 className="text-base font-bold text-red-500" style={{ fontFamily: 'Outfit, sans-serif' }}>Danger Zone</h2>
+                <h2 className="text-base font-bold text-red-500" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>Danger Zone</h2>
                 <p className="text-sm font-medium text-[var(--color-muted)]">Sign out of your recruiter account across all sessions.</p>
                 <button onClick={handleLogout} className="hiero-btn-danger text-sm font-bold">
                   <LogOut size={15} /> Sign Out

@@ -99,7 +99,7 @@ export default function AdminLogin() {
           <ShieldCheck size={22} style={{ color: 'var(--color-accent)' }} />
         </div>
 
-        <h1 className="text-xl font-black mb-1.5" style={{ fontFamily: 'Outfit, sans-serif' }}>
+        <h1 className="text-xl font-black mb-1.5" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
           HIERO Admin
         </h1>
         <p className="text-sm mb-7" style={{ color: 'var(--color-muted)' }}>
@@ -126,7 +126,7 @@ export default function AdminLogin() {
                 background: 'var(--color-card)',
                 border: `1.5px solid ${digit ? 'var(--color-accent-border)' : 'var(--color-border)'}`,
                 color: 'var(--color-text)',
-                fontFamily: 'Outfit, sans-serif',
+                fontFamily: 'Plus Jakarta Sans, sans-serif',
               }}
             />
           ))}

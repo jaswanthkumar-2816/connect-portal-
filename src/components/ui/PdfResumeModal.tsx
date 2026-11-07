@@ -228,7 +228,7 @@ export default function PdfResumeModal({
             <div className="border-b-2 border-slate-900 pb-4 mb-5 flex items-start justify-between gap-6">
               <div className="flex-1">
                 <div className="flex items-center gap-3">
-                  <h1 className="text-2xl font-black text-slate-900 tracking-tight uppercase" style={{ fontFamily: 'Outfit, sans-serif' }}>
+                  <h1 className="text-2xl font-black text-slate-900 tracking-tight uppercase" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
                     {name}
                   </h1>
                   <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300">

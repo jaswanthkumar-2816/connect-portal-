@@ -1,6 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
-  Briefcase, Inbox, Star, PlusCircle, ChevronLeft, ChevronRight,
+  Home, Briefcase, Inbox, Star, PlusCircle, ChevronLeft, ChevronRight,
   Zap, LogOut, Mic, Users, Fingerprint, CalendarClock, TrendingUp,
   Receipt, BarChart3
 } from 'lucide-react';
@@ -25,6 +25,7 @@ const navSections: { label: string; items: NavItem[] }[] = [
   {
     label: 'Recruitment',
     items: [
+      { to: '/industry/dashboard', icon: Home, label: 'Home' },
       { to: '/industry/create', icon: PlusCircle, label: 'Post' },
       { to: '/industry/applications', icon: Inbox, label: 'Inbox' },
       { to: '/industry/shortlisted', icon: Star, label: 'Shortlisted' },
@@ -35,8 +36,8 @@ const navSections: { label: string; items: NavItem[] }[] = [
   {
     label: 'Workforce',
     items: [
-      { to: '/industry/employees', icon: Users, label: 'Employees', soon: true },
-      { to: '/industry/attendance', icon: Fingerprint, label: 'Attendance', soon: true },
+      { to: '/industry/employees', icon: Users, label: 'Employees' },
+      { to: '/industry/attendance', icon: Fingerprint, label: 'Attendance' },
       { to: '/industry/shifts', icon: CalendarClock, label: 'Shift & Leave', soon: true },
       { to: '/industry/performance', icon: TrendingUp, label: 'Performance', soon: true },
     ],
@@ -50,9 +51,12 @@ const navSections: { label: string; items: NavItem[] }[] = [
   },
 ];
 
-// The phone bar fits four, so it carries the hiring work that is built.
-// The rest of the modules live in the sidebar on a wider screen.
-const mobileNavItems = navSections[0].items.filter(item => !item.soon);
+// The phone bar fits four. Home and the inbox are what a shop owner opens;
+// the rest live in the sidebar on a wider screen.
+const MOBILE_PATHS = ['/industry/dashboard', '/industry/applications', '/industry/create', '/industry/jobs'];
+const mobileNavItems = MOBILE_PATHS
+  .map(path => navSections.flatMap(s => s.items).find(i => i.to === path))
+  .filter((i): i is NavItem => Boolean(i));
 
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);

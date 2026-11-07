@@ -111,7 +111,7 @@ export default function Attendance() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-black" style={{ fontFamily: 'Outfit, sans-serif', color: 'var(--color-text)' }}>
+        <h1 className="text-2xl font-black" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: 'var(--color-text)' }}>
           Attendance
         </h1>
         <p className="text-sm mt-1" style={{ color: 'var(--color-muted)' }}>

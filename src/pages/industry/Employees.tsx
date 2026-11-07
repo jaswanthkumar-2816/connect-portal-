@@ -138,7 +138,7 @@ export default function Employees() {
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-2xl font-black" style={{ fontFamily: 'Outfit, sans-serif', color: 'var(--color-text)' }}>
+          <h1 className="text-2xl font-black" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: 'var(--color-text)' }}>
             Employees
           </h1>
           <p className="text-sm mt-1" style={{ color: 'var(--color-muted)' }}>
