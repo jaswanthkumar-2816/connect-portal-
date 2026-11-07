@@ -103,6 +103,21 @@ export function warmVoice() {
 
 export const voiceEnabled = () => config.voiceEnabled;
 
+/**
+ * Is the model loaded *right now*?
+ *
+ * Not "is it configured" — the two came apart badly in production. Loading
+ * Kokoro on a 512MB instance takes a minute and most of the memory, and a
+ * candidate's first question was arriving while that was happening. The
+ * request sat waiting, the instance ran out of memory, the process was
+ * killed, and the interview it was halfway through went with it.
+ *
+ * So the first question asks this instead of waiting: no model yet, no
+ * audio, and the browser reads the question while the model finishes
+ * loading behind it. By question two it is usually ready.
+ */
+export const voiceReady = () => Boolean(tts);
+
 function cachePath(text) {
   const key = crypto
     .createHash('sha1')

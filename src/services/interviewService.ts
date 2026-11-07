@@ -60,6 +60,12 @@ export interface InterviewSession {
   answered: number;
   /** True when this is the local rehearsal, not a real interview. */
   rehearsal: boolean;
+  /**
+   * Whether the service's own voice is loaded and will answer. It says so
+   * up front rather than letting the first question find out: a request that
+   * fails is a question the candidate hears nothing of.
+   */
+  voice: boolean;
 }
 
 const TIMEOUT_LOAD = 20000;
@@ -137,6 +143,8 @@ function rehearsalSession(): InterviewSession {
     questions: REHEARSAL_QUESTIONS,
     answered: 0,
     rehearsal: true,
+    // The rehearsal runs with no service behind it.
+    voice: false,
   };
 }
 
@@ -150,6 +158,7 @@ export async function loadInterview(token: string): Promise<InterviewSession> {
     questions: [] as InterviewQuestion[],
     answered: 0,
     rehearsal: false,
+    voice: false,
   };
 
   if (!token) return { ...empty, state: 'not-found' };
@@ -206,6 +215,7 @@ export async function loadInterview(token: string): Promise<InterviewSession> {
     questions,
     answered: Number.isFinite(answered) ? Math.max(0, answered) : 0,
     rehearsal: false,
+    voice: session.voice !== false,
   };
 }
 

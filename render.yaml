@@ -36,6 +36,16 @@ services:
       - key: CONNECT_API_KEY
         generateValue: true
 
+      # Not optional. Interviews in progress live here. Without it they go
+      # to a file on Render's disk, which is thrown away every time the
+      # service restarts — and the free plan restarts on its own after
+      # fifteen idle minutes. A candidate halfway through then gets "that
+      # answer could not be saved" and cannot finish.
+      #
+      # Same value as the gateway's MONGODB_URI.
+      - key: MONGODB_URI
+        sync: false
+
       - key: HIERO_GATEWAY_URL
         value: https://hiero.in
       - key: PORTAL_URL
@@ -44,3 +54,19 @@ services:
         value: https://connect.hiero.in
       - key: QUESTION_COUNT
         value: 8
+
+      # Off on the free plan, and the reason is CPU rather than memory —
+      # the model needs about 60MB, which fits fine.
+      #
+      # A free instance gets 0.1 of a CPU. Kokoro's inference runs in-process
+      # and blocks Node's event loop, so generating five seconds of speech
+      # pegs the whole service for around a minute. Render's health check
+      # gets no answer in that time, decides the service is dead and
+      # restarts it — in the middle of somebody's interview.
+      #
+      # So the candidate's browser reads the questions instead. Turn this
+      # back on when the service is on an instance with a real CPU; the
+      # portal picks the better voice up on its own, because the session
+      # tells it whether the model is loaded.
+      - key: VOICE_ENABLED
+        value: "false"

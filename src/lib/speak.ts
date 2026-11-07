@@ -26,6 +26,16 @@ let browserVoice: SpeechSynthesisVoice | null = null;
 /** Set once the service has failed us, so we stop waiting on it every time. */
 let serviceDown = false;
 
+/**
+ * Set from the session: the service tells us up front whether its voice is
+ * loaded. Without this the first question is spent finding out — a request
+ * that fails, a fallback that starts late, and a candidate listening to
+ * silence while the microphone opens underneath them.
+ */
+export function setServiceVoice(available: boolean): void {
+  serviceDown = !available;
+}
+
 export function voiceAvailable(): boolean {
   return typeof window !== 'undefined';
 }
@@ -42,6 +52,10 @@ function pickBrowserVoice(): SpeechSynthesisVoice | null {
   if (!('speechSynthesis' in window)) return null;
   if (browserVoice) return browserVoice;
   const voices = window.speechSynthesis.getVoices();
+  // Empty on the first call in Samsung Internet and most Android browsers:
+  // the list arrives later, over voiceschanged. Speaking with no voice set
+  // is still better than not speaking — the browser uses its default — so
+  // this returns null and the utterance goes out without one.
   if (!voices.length) return null;
   for (const tag of PREFERRED) {
     const match = voices.find(v => v.lang?.replace('_', '-') === tag);
@@ -63,6 +77,10 @@ function speakInBrowser(text: string, done: () => void): void {
   if (voice) {
     utterance.voice = voice;
     utterance.lang = voice.lang;
+  } else {
+    // No voice list yet. Setting the language still gets the right default
+    // on Android, and leaving .voice unset is what lets it speak at all.
+    utterance.lang = 'en-IN';
   }
   utterance.rate = 0.95;
   utterance.onend = done;
@@ -152,8 +170,24 @@ export function speak(
 
   if (source && !serviceDown && player) {
     const audio = player;
-    audio.onended = finish;
+
+    // If our audio has not started within this, stop waiting for it and let
+    // the browser read the question. The microphone opens when the question
+    // finishes, so a question that is still downloading is a question the
+    // candidate never hears — they get silence, then a recording light.
+    const fallbackAt = window.setTimeout(() => {
+      if (settled) return;
+      audio.onended = null;
+      audio.onerror = null;
+      try { audio.pause(); } catch { /* nothing playing */ }
+      speakInBrowser(text, finish);
+    }, 2500);
+
+    const stopWaiting = () => window.clearTimeout(fallbackAt);
+    audio.onplaying = stopWaiting;
+    audio.onended = () => { stopWaiting(); finish(); };
     audio.onerror = () => {
+      stopWaiting();
       // Ours could not be fetched or decoded. Fall back rather than leaving
       // the candidate in silence — and stop trying for the rest of the
       // interview, so every question is not held up by the same timeout.
@@ -164,10 +198,11 @@ export function speak(
     };
     audio.src = speechUrl(source.token, source.questionId);
     audio.play().catch(() => {
+      stopWaiting();
       serviceDown = true;
       speakInBrowser(text, finish);
     });
-    return () => { finish(); stopSpeaking(); };
+    return () => { window.clearTimeout(fallbackAt); finish(); stopSpeaking(); };
   }
 
   speakInBrowser(text, finish);

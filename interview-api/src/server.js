@@ -1,12 +1,12 @@
 import express from 'express';
 import cors from 'cors';
 import { config, checkConfig } from './config.js';
-import { store } from './store.js';
+import { store, ready as storeReady } from './store.js';
 import { issueToken, readToken, newId } from './tokens.js';
 import { writeQuestions } from './questions.js';
 import { assessInterview } from './report.js';
 import { groqConfigured } from './groq.js';
-import { speakText, warmVoice, voiceEnabled } from './voice.js';
+import { speakText, warmVoice, voiceEnabled, voiceReady } from './voice.js';
 import { verifyRecruiter } from './auth.js';
 
 // ============================================================
@@ -131,6 +131,9 @@ app.get('/health', (_req, res) => {
     groq: groqConfigured() ? config.groqModel : 'not configured',
     voice: voiceEnabled() ? config.voiceName : 'off',
     sessions: store.count(),
+    // false means interviews in progress are on a disk that a restart
+    // throws away. Worth seeing here rather than from a candidate.
+    durable: store.durable(),
   });
 });
 
@@ -217,6 +220,10 @@ app.get('/api/interview/session/:token', throttle, (req, res) => {
       companyName: session.companyName || 'the company',
       questions: session.questions,
       answered: session.answers.length,
+      // Whether our own voice can be used for this interview. The portal
+      // asks so it can go straight to the browser's voice instead of
+      // waiting on an endpoint that is going to refuse.
+      voice: voiceEnabled() && voiceReady(),
     },
   });
 });
@@ -236,6 +243,13 @@ app.get('/api/interview/speak/:token/:questionId', throttle, async (req, res) =>
   const question = session.questions.find(q => q.id === req.params.questionId);
   if (!question) {
     return res.status(404).json({ success: false, error: 'No such question.' });
+  }
+
+  // Never wait on a cold model. See voiceReady() — waiting here is what
+  // took the service down mid-interview.
+  if (!voiceEnabled() || !voiceReady()) {
+    warmVoice();
+    return res.status(503).json({ success: false, error: 'voice not ready' });
   }
 
   try {
@@ -328,6 +342,9 @@ app.post('/api/interview/finish', throttle, async (req, res) => {
   }
 
   store.update(session.jti, { state: 'completed', completedAt, report, reportError });
+  // The one write worth waiting on. The candidate is already reading the
+  // thank-you screen, and the report is not produced a second time.
+  await store.settled(session.jti);
   res.json({ success: true });
 });
 
@@ -425,12 +442,18 @@ if (missing.length) {
   process.exit(1);
 }
 
+// Sessions already in progress come back from the database before the first
+// request is taken — answering "no such interview" to a valid link while
+// hydrating would be the same failure this guards against.
+await storeReady;
+
 app.listen(config.port, () => {
   console.log(`\n  HIERO Interview API on http://localhost:${config.port}`);
   console.log(`  Groq:   ${groqConfigured() ? config.groqModel : 'no key — standard questions, no scoring'}`);
   console.log(`  Voice:  ${voiceEnabled() ? `${config.voiceName} (${config.voiceModel})` : 'off — the browser reads the questions'}`);
   console.log(`  Portal: ${config.portalUrl}`);
-  console.log(`  Stored: ${store.count()} session${store.count() === 1 ? '' : 's'}\n`);
+  console.log(`  Stored: ${store.count()} session${store.count() === 1 ? '' : 's'} ` +
+    `(${store.durable() ? 'MongoDB' : 'local file — lost on restart'})\n`);
 
   // Fetched now rather than when the first candidate is waiting on it.
   warmVoice();

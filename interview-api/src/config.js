@@ -33,6 +33,12 @@ export const config = {
   inviteTtlDays: int(process.env.INVITE_TTL_DAYS, 7),
   questionCount: Math.min(Math.max(int(process.env.QUESTION_COUNT, 8), 3), 15),
 
+  // Where interviews in progress are kept. Without it they go to the JSON
+  // file below, which does not survive a restart on a host with an
+  // ephemeral disk — see src/store.js. Same database as the gateway.
+  mongoUri: process.env.MONGODB_URI || '',
+  mongoDb: process.env.MONGODB_DB || '',
+
   dataFile: path.join(here, '..', 'data', 'sessions.json'),
 
   // The interviewer's voice. Kokoro-82M runs here, so it costs nothing per

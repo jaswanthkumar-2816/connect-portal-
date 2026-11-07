@@ -8,7 +8,7 @@ import Logo from '../../components/ui/Logo';
 import AnswerRecorder from '../../components/interview/AnswerRecorder';
 import Interviewer from '../../components/interview/Interviewer';
 import { useVoiceAnswer, speechSupported } from '../../hooks/useVoiceAnswer';
-import { speak, stopSpeaking, voiceAvailable, warmVoices, prefetchSpeech } from '../../lib/speak';
+import { speak, stopSpeaking, voiceAvailable, warmVoices, prefetchSpeech, setServiceVoice } from '../../lib/speak';
 import {
   loadInterview, submitAnswer, finishInterview,
   type InterviewSession, type SessionState,
@@ -131,7 +131,7 @@ function Stopped({
       </div>
       <h1
         className="text-xl font-black mb-2"
-        style={{ fontFamily: 'Outfit, sans-serif', color: 'var(--color-text)' }}
+        style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: 'var(--color-text)' }}
       >
         {title}
       </h1>
@@ -233,6 +233,21 @@ export default function CandidateInterview() {
   }, [token]);
 
   useEffect(fetchSession, [fetchSession]);
+
+  // Two things the moment the session lands, both for the first question —
+  // the one that used to arrive in silence.
+  //
+  // The service says whether its own voice is loaded, so a question is not
+  // spent discovering that it is not. And the first question's audio is
+  // fetched now, while the candidate is still reading the page and deciding
+  // to tap, rather than after the tap with them waiting on it.
+  useEffect(() => {
+    if (!session || state !== 'ready') return;
+    setServiceVoice(session.voice && !session.rehearsal);
+    if (session.voice && !session.rehearsal && !muted) {
+      prefetchSpeech(token, session.questions[0]?.id);
+    }
+  }, [session, state, token, muted]);
 
   // Mid-interview, a reload costs them the answer they are on. The browser
   // only shows its own wording here, but it is still the difference between
@@ -447,7 +462,7 @@ export default function CandidateInterview() {
           </div>
           <h1
             className="text-2xl font-black mb-2"
-            style={{ fontFamily: 'Outfit, sans-serif', color: 'var(--color-text)' }}
+            style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: 'var(--color-text)' }}
           >
             That is everything
           </h1>
@@ -487,7 +502,7 @@ export default function CandidateInterview() {
           >
             <h1
               className="text-xl font-black leading-tight"
-              style={{ fontFamily: 'Outfit, sans-serif', color: 'var(--color-text)' }}
+              style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: 'var(--color-text)' }}
             >
               {name ? `Hello ${name}` : 'Hello'} — about the {session?.role} job
             </h1>
@@ -626,7 +641,7 @@ export default function CandidateInterview() {
           )}
           <p
             className="text-lg font-bold leading-snug"
-            style={{ fontFamily: 'Outfit, sans-serif', color: 'var(--color-text)' }}
+            style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: 'var(--color-text)' }}
           >
             {question?.text}
           </p>
