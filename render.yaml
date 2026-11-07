@@ -46,6 +46,16 @@ services:
       - key: MONGODB_URI
         sync: false
 
+      # Posting the finished report to whoever asked for the interview.
+      # The same two values the gateway service already has -- copy them
+      # from there. Render's free plan blocks SMTP, so this goes out over
+      # Resend's HTTPS API; without it the interview still works and the
+      # report still appears in the portal, and only the email is skipped.
+      - key: RESEND_API_KEY
+        sync: false
+      - key: MAIL_FROM
+        value: HIERO Connect <noreply@hiero.in>
+
       - key: HIERO_GATEWAY_URL
         value: https://hiero.in
       - key: PORTAL_URL

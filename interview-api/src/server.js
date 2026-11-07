@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import { config, checkConfig } from './config.js';
 import { store, ready as storeReady } from './store.js';
+import { reportEmail, send as sendMail, mailConfigured } from './mail.js';
 import { issueToken, readToken, newId } from './tokens.js';
 import { writeQuestions } from './questions.js';
 import { assessInterview } from './report.js';
@@ -134,6 +135,7 @@ app.get('/health', (_req, res) => {
     // false means interviews in progress are on a disk that a restart
     // throws away. Worth seeing here rather than from a candidate.
     durable: store.durable(),
+    mail: mailConfigured(),
   });
 });
 
@@ -174,6 +176,10 @@ app.post('/api/interview/invite', recruiterOnly, async (req, res) => {
     applicationId: String(applicationId),
     companyId: req.recruiter?.companyId || '',
     createdBy: req.recruiter?.id || 'service',
+    // Where the finished report is sent. Taken from whoever is signed in
+    // and asking for the interview, because that is the person waiting for
+    // the answer — a caller can name someone else explicitly.
+    notifyEmail: String(req.body?.notifyEmail || req.recruiter?.email || '').trim(),
     candidateName: String(candidateName || ''),
     role: String(role || ''),
     companyName: String(companyName || ''),
@@ -403,6 +409,24 @@ app.post('/api/interview/finish', throttle, async (req, res) => {
   // The one write worth waiting on. The candidate is already reading the
   // thank-you screen, and the report is not produced a second time.
   await store.settled(session.jti);
+
+  // And out to whoever asked for the interview. Not awaited and never
+  // allowed to fail the request: the candidate has finished either way, and
+  // the report is in the portal whether or not the mail lands.
+  if (session.notifyEmail && mailConfigured()) {
+    const { subject, html } = reportEmail({
+      candidateName: session.candidateName,
+      role: session.role,
+      companyName: session.companyName,
+      report,
+      answers: script,
+    });
+    sendMail({ to: session.notifyEmail, subject, html })
+      .then(() => console.log(`[mail] report for ${session.applicationId} sent to ${session.notifyEmail}`))
+      .catch(err => console.error(`[mail] report for ${session.applicationId} failed:`, err.message));
+  } else if (session.notifyEmail) {
+    console.warn(`[mail] no RESEND_API_KEY — report for ${session.applicationId} was not sent`);
+  }
   res.json({ success: true });
 });
 
