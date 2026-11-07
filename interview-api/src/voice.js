@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { config } from './config.js';
+import { store } from './store.js';
 
 // ============================================================
 // The interviewer's voice
@@ -55,6 +56,42 @@ function toWav16(samples, sampleRate) {
   return bytes;
 }
 
+// ── Groq, over HTTPS ────────────────────────────────────────
+//
+// No model in this process, so nothing to load and nothing to block. The
+// request is a download, which a small instance can do while still
+// answering everything else.
+
+const usingGroq = () => config.ttsProvider === 'groq' && Boolean(config.groqKey);
+
+async function speakViaGroq(text) {
+  const res = await fetch('https://api.groq.com/openai/v1/audio/speech', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${config.groqKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: config.ttsModel,
+      voice: config.ttsVoice,
+      input: text,
+      response_format: 'wav',
+    }),
+    signal: AbortSignal.timeout(45000),
+  });
+
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    // The one worth naming: the model is there but nobody has agreed to its
+    // terms yet, which is a click in the Groq console and not a bug here.
+    if (detail.includes('model_terms_required')) {
+      throw new Error(`${config.ttsModel} needs its terms accepted at console.groq.com`);
+    }
+    throw new Error(`groq tts ${res.status}: ${detail.slice(0, 200)}`);
+  }
+  return Buffer.from(await res.arrayBuffer());
+}
+
 let loading = null;
 let tts = null;
 let unavailable = '';
@@ -98,6 +135,8 @@ async function model() {
 /** Start the download in the background so the first candidate does not wait. */
 export function warmVoice() {
   if (!config.voiceEnabled) return;
+  // Nothing to warm when the work happens on Groq's machines.
+  if (usingGroq()) return;
   model().catch(() => {});
 }
 
@@ -116,12 +155,21 @@ export const voiceEnabled = () => config.voiceEnabled;
  * audio, and the browser reads the question while the model finishes
  * loading behind it. By question two it is usually ready.
  */
-export const voiceReady = () => Boolean(tts);
+export const voiceReady = () => (usingGroq() ? true : Boolean(tts));
+
+/** What the health check prints, so the wrong provider is visible there. */
+export const voiceDescription = () => {
+  if (!config.voiceEnabled) return 'off';
+  if (usingGroq()) return `${config.ttsVoice} (${config.ttsModel})`;
+  return tts ? `${config.voiceName} (kokoro, loaded)` : `${config.voiceName} (kokoro, loading)`;
+};
 
 function cachePath(text) {
   const key = crypto
     .createHash('sha1')
-    .update(`${config.voiceModel}|${config.voiceName}|${config.voiceSpeed}|${text}`)
+    .update(usingGroq()
+      ? `groq|${config.ttsModel}|${config.ttsVoice}|${text}`
+      : `${config.voiceModel}|${config.voiceName}|${config.voiceSpeed}|${text}`)
     .digest('hex');
   return path.join(CACHE_DIR, `${key}.wav`);
 }
@@ -141,15 +189,34 @@ export async function speakText(text) {
   try {
     return await fs.promises.readFile(file);
   } catch {
-    // Not rendered yet. Fall through and make it.
+    // Not on this disk. It may still be in the database, put there by this
+    // service before it was last restarted — or by another instance.
   }
 
-  const engine = await model();
-  const audio = await engine.generate(clean, {
-    voice: config.voiceName,
-    speed: config.voiceSpeed,
-  });
-  const wav = toWav16(audio.audio, audio.sampling_rate);
+  const key = path.basename(file, '.wav');
+  const kept = await store.getAudio(key);
+  if (kept) {
+    fs.promises
+      .mkdir(CACHE_DIR, { recursive: true })
+      .then(() => fs.promises.writeFile(file, kept))
+      .catch(() => {});
+    return kept;
+  }
+
+  let wav;
+  if (usingGroq()) {
+    wav = await speakViaGroq(clean);
+  } else {
+    const engine = await model();
+    const audio = await engine.generate(clean, {
+      voice: config.voiceName,
+      speed: config.voiceSpeed,
+    });
+    wav = toWav16(audio.audio, audio.sampling_rate);
+  }
+
+  // Kept for every later candidate, not just the ones this process serves.
+  store.putAudio(key, wav).catch(() => {});
 
   try {
     await fs.promises.mkdir(CACHE_DIR, { recursive: true });

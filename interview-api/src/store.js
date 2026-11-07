@@ -31,12 +31,19 @@ import { config } from './config.js';
 
 const COLLECTION = 'interview_sessions';
 
+// Spoken questions, kept beside the interviews. Every candidate for a job
+// hears the same eight questions, and Render's disk is wiped on each
+// restart — without this, the same sentences are paid for and waited on
+// again every time the service comes back.
+const AUDIO = 'interview_audio';
+
 // A finished interview is worth keeping while the recruiter might still open
 // the report, and worth nothing after that. Mongo expires them itself.
 const KEEP_DAYS = 60;
 
 let sessions = new Map();
 let collection = null;
+let audio = null;
 
 // ── The file, for a laptop with no Mongo ────────────────────
 
@@ -87,6 +94,11 @@ async function connect() {
     .createIndex({ savedAt: 1 }, { expireAfterSeconds: KEEP_DAYS * 86400 })
     .catch(() => {});
   await collection.createIndex({ applicationId: 1, createdAt: -1 }).catch(() => {});
+
+  audio = db.collection(AUDIO);
+  await audio
+    .createIndex({ savedAt: 1 }, { expireAfterSeconds: KEEP_DAYS * 86400 })
+    .catch(() => {});
 
   const rows = await collection.find({}).toArray();
   sessions = new Map(rows.map(row => {
@@ -222,6 +234,32 @@ export const store = {
    */
   async settled(jti) {
     while (inFlight.has(jti)) await inFlight.get(jti);
+  },
+
+  /** A question already spoken, or null. */
+  async getAudio(key) {
+    if (!audio) return null;
+    try {
+      const row = await audio.findOne({ _id: key });
+      return row ? Buffer.from(row.wav.buffer || row.wav) : null;
+    } catch (err) {
+      console.error('[store] could not read audio:', err.message);
+      return null;
+    }
+  },
+
+  /** Keep a spoken question so the next candidate does not wait for it. */
+  async putAudio(key, wav) {
+    if (!audio) return;
+    try {
+      await audio.replaceOne(
+        { _id: key },
+        { _id: key, wav, savedAt: new Date() },
+        { upsert: true }
+      );
+    } catch (err) {
+      console.error('[store] could not save audio:', err.message);
+    }
   },
 
   /** What the health check reports, so a wrong answer is visible there. */

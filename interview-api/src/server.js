@@ -6,7 +6,7 @@ import { issueToken, readToken, newId } from './tokens.js';
 import { writeQuestions } from './questions.js';
 import { assessInterview } from './report.js';
 import { groqConfigured } from './groq.js';
-import { speakText, warmVoice, voiceEnabled, voiceReady } from './voice.js';
+import { speakText, warmVoice, voiceEnabled, voiceReady, voiceDescription } from './voice.js';
 import { verifyRecruiter } from './auth.js';
 
 // ============================================================
@@ -129,7 +129,7 @@ app.get('/health', (_req, res) => {
     success: true,
     service: 'hiero-interview-api',
     groq: groqConfigured() ? config.groqModel : 'not configured',
-    voice: voiceEnabled() ? config.voiceName : 'off',
+    voice: voiceDescription(),
     sessions: store.count(),
     // false means interviews in progress are on a disk that a restart
     // throws away. Worth seeing here rather than from a candidate.
@@ -450,7 +450,7 @@ await storeReady;
 app.listen(config.port, () => {
   console.log(`\n  HIERO Interview API on http://localhost:${config.port}`);
   console.log(`  Groq:   ${groqConfigured() ? config.groqModel : 'no key — standard questions, no scoring'}`);
-  console.log(`  Voice:  ${voiceEnabled() ? `${config.voiceName} (${config.voiceModel})` : 'off — the browser reads the questions'}`);
+  console.log(`  Voice:  ${voiceEnabled() ? voiceDescription() : 'off — the browser reads the questions'}`);
   console.log(`  Portal: ${config.portalUrl}`);
   console.log(`  Stored: ${store.count()} session${store.count() === 1 ? '' : 's'} ` +
     `(${store.durable() ? 'MongoDB' : 'local file — lost on restart'})\n`);

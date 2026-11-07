@@ -134,12 +134,44 @@ export function stopSpeaking(): void {
 }
 
 /**
+ * The recorded clip for a question, if there is one.
+ *
+ * Some questions are spoken ahead of time on a machine that can afford to
+ * run the model, and shipped with the portal under public/voice. The name
+ * is a hash of the question text — see interview-api/scripts/record-
+ * questions.mjs, which must hash it exactly the same way.
+ *
+ * This exists because the interview service runs on an instance too small
+ * to make speech without stalling itself. When that stops being true the
+ * recordings simply stop being found, and nothing here needs changing.
+ */
+async function recordedUrl(text: string): Promise<string | null> {
+  const subtle = window.crypto?.subtle;
+  if (!subtle) return null;
+  try {
+    const bytes = new TextEncoder().encode(text.trim());
+    const digest = await subtle.digest('SHA-1', bytes);
+    const key = Array.from(new Uint8Array(digest))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('')
+      .slice(0, 20);
+    return `/voice/${key}.wav`;
+  } catch {
+    // Non-secure origin, most likely. The service and the browser are both
+    // still there.
+    return null;
+  }
+}
+
+/**
  * Say one question. Returns a function that stops it part-way, for when the
  * candidate starts answering before it has finished.
  *
- * `onDone` is what opens the microphone, so it has to fire exactly once
- * whatever happens — including on a device with no voices installed, where
- * speechSynthesis accepts an utterance and then never says another word.
+ * Three places the voice can come from, in order: a clip recorded ahead of
+ * time, the interview service, and the browser's own. `onDone` is what opens
+ * the microphone, so it has to fire exactly once whatever happens —
+ * including on a device with no voices installed, where speechSynthesis
+ * accepts an utterance and then never says another word.
  */
 export function speak(
   text: string,
@@ -168,43 +200,57 @@ export function speak(
 
   stopSpeaking();
 
-  if (source && !serviceDown && player) {
+  /**
+   * Play one URL, and hand on to `next` if it will not play.
+   *
+   * The timeout matters as much as the error: an audio element that is
+   * still downloading reports nothing at all, and the candidate hears
+   * silence until the guard above opens the microphone over the top of it.
+   */
+  const playFrom = (url: string, next: () => void, waitMs: number): void => {
+    if (settled || !player) { next(); return; }
     const audio = player;
-
-    // If our audio has not started within this, stop waiting for it and let
-    // the browser read the question. The microphone opens when the question
-    // finishes, so a question that is still downloading is a question the
-    // candidate never hears — they get silence, then a recording light.
-    const fallbackAt = window.setTimeout(() => {
+    const giveUp = window.setTimeout(() => {
       if (settled) return;
+      audio.onplaying = null;
       audio.onended = null;
       audio.onerror = null;
       try { audio.pause(); } catch { /* nothing playing */ }
-      speakInBrowser(text, finish);
-    }, 2500);
+      next();
+    }, waitMs);
+    const stopWaiting = () => window.clearTimeout(giveUp);
 
-    const stopWaiting = () => window.clearTimeout(fallbackAt);
     audio.onplaying = stopWaiting;
     audio.onended = () => { stopWaiting(); finish(); };
     audio.onerror = () => {
       stopWaiting();
-      // Ours could not be fetched or decoded. Fall back rather than leaving
-      // the candidate in silence — and stop trying for the rest of the
-      // interview, so every question is not held up by the same timeout.
-      serviceDown = true;
       audio.onended = null;
       audio.onerror = null;
-      speakInBrowser(text, finish);
+      next();
     };
-    audio.src = speechUrl(source.token, source.questionId);
-    audio.play().catch(() => {
-      stopWaiting();
-      serviceDown = true;
-      speakInBrowser(text, finish);
-    });
-    return () => { window.clearTimeout(fallbackAt); finish(); stopSpeaking(); };
-  }
+    audio.src = url;
+    audio.play().catch(() => { stopWaiting(); next(); });
+  };
 
-  speakInBrowser(text, finish);
+  const fromBrowser = () => speakInBrowser(text, finish);
+
+  const fromService = () => {
+    if (!source || serviceDown) { fromBrowser(); return; }
+    playFrom(speechUrl(source.token, source.questionId), () => {
+      // Stop trying for the rest of the interview, so every question is not
+      // held up by the same wait.
+      serviceDown = true;
+      fromBrowser();
+    }, 2500);
+  };
+
+  // A recording is a local file, so it either starts quickly or is not
+  // there; the service is over the network and gets longer.
+  recordedUrl(text).then(url => {
+    if (settled) return;
+    if (url) playFrom(url, fromService, 1200);
+    else fromService();
+  });
+
   return () => { finish(); stopSpeaking(); };
 }

@@ -41,10 +41,22 @@ export const config = {
 
   dataFile: path.join(here, '..', 'data', 'sessions.json'),
 
-  // The interviewer's voice. Kokoro-82M runs here, so it costs nothing per
-  // question — see src/voice.js. VOICE_ENABLED=false falls the portal back
-  // to whatever voice the candidate's own browser has.
+  // ── The interviewer's voice ──
+  //
+  // Two ways to make it. 'groq' asks Groq over HTTPS; 'local' runs
+  // Kokoro-82M in this process.
+  //
+  // Local is free per question and sounds good, and it is the wrong choice
+  // on a small instance: the inference is synchronous, so a tenth of a CPU
+  // spends about a minute inside one request. Nothing else is served in
+  // that time — including the host's health check, which concludes the
+  // service is dead and restarts it, in the middle of an interview.
+  //
+  // Groq does the work on their machine. The request here is a download.
   voiceEnabled: process.env.VOICE_ENABLED !== 'false',
+  ttsProvider: (process.env.TTS_PROVIDER || (process.env.GROQ_API_KEY ? 'groq' : 'local')).toLowerCase(),
+  ttsModel: process.env.TTS_MODEL || 'canopylabs/orpheus-v1-english',
+  ttsVoice: process.env.TTS_VOICE || 'tara',
   voiceModel: process.env.VOICE_MODEL || 'onnx-community/Kokoro-82M-v1.0-ONNX',
   voiceName: process.env.VOICE_NAME || 'af_heart',
   voiceDtype: process.env.VOICE_DTYPE || 'q8',
