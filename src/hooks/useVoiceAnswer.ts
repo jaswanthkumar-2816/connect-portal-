@@ -241,15 +241,39 @@ export function useVoiceAnswer(): VoiceAnswer {
 
     rec.onend = () => {
       if (!wantRecognition.current) return;
-      try { rec.start(); } catch { /* it is already running */ }
+      begin();
     };
 
-    try {
-      rec.start();
-      recognition.current = rec;
-    } catch {
-      // Starting twice throws. Nothing to do: it is already listening.
-    }
+    // Claimed before it is started, not after.
+    //
+    // This used to be the other way round, and it is why a candidate's
+    // second answer came back blank. Starting a recogniser throws while the
+    // previous one is still letting go of the microphone — which is exactly
+    // the moment between one question and the next. The throw was caught and
+    // ignored, so recognition.current was left null: the meter still moved,
+    // the silence gap still ended the answer on time, and not one word was
+    // ever transcribed. Everything looked right except the answer.
+    //
+    // So it is held onto first, and a failure to start is retried rather
+    // than swallowed. The guard inside stops the retries the moment this
+    // recogniser is replaced or torn down.
+    recognition.current = rec;
+
+    let attempt = 0;
+    const begin = () => {
+      if (!wantRecognition.current || recognition.current !== rec) return;
+      try {
+        rec.start();
+      } catch {
+        attempt += 1;
+        if (attempt <= 10) {
+          window.setTimeout(begin, 150);
+        } else {
+          setError('The microphone could not be started. Type your answer instead.');
+        }
+      }
+    };
+    begin();
   }, []);
 
   const stop = useCallback(() => {

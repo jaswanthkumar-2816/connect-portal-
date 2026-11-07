@@ -273,7 +273,13 @@ export default function CandidateInterview() {
 
     const openMic = () => {
       if (askSeq.current !== mine) return;
-      if (statusRef.current !== 'idle') return;
+      // Anything but already listening. This used to insist on 'idle',
+      // which is a state React has not necessarily re-rendered into by the
+      // time a question finishes being read — reset() queues it, and a
+      // question that is read quickly can finish first. The microphone then
+      // never opened and the candidate sat looking at a question nothing
+      // was listening to.
+      if (statusRef.current === 'starting' || statusRef.current === 'recording') return;
       void voice.start();
     };
 
@@ -352,12 +358,18 @@ export default function CandidateInterview() {
       setCountdown(null);
       return;
     }
+    // Nothing was heard. Carrying on would file silence as their answer and
+    // take the question with it — they get to try again instead, or type.
+    if (!voice.transcript.trim()) {
+      setCountdown(null);
+      return;
+    }
     setCountdown(AUTO_SEND_SECONDS);
     const timer = window.setInterval(() => {
       setCountdown(prev => (prev === null ? null : Math.max(0, prev - 1)));
     }, 1000);
     return () => window.clearInterval(timer);
-  }, [voice.status, voice.autoStopped, held, sending, finished]);
+  }, [voice.status, voice.autoStopped, voice.transcript, held, sending, finished]);
 
   useEffect(() => {
     if (countdown === 0) sendRef.current();
