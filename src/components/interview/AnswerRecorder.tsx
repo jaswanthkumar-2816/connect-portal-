@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Mic, Square, RotateCcw, Keyboard, AlertCircle } from 'lucide-react';
+import { Mic, Square, RotateCcw, Keyboard, AlertCircle, Loader2 } from 'lucide-react';
 import { MAX_ANSWER_SECONDS, type VoiceAnswer } from '../../hooks/useVoiceAnswer';
 
 // ============================================================
@@ -204,6 +204,16 @@ export default function AnswerRecorder({
               </p>
             )}
           </>
+        )}
+
+        {status === 'transcribing' && (
+          <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl"
+            style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
+            <Loader2 size={14} className="animate-spin" style={{ color: 'var(--color-accent)' }} />
+            <span className="text-xs font-semibold" style={{ color: 'var(--color-text-dim)' }}>
+              Writing down what you said…
+            </span>
+          </div>
         )}
 
         {status === 'stopped' && (

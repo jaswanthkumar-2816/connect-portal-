@@ -8,7 +8,7 @@ import Logo from '../../components/ui/Logo';
 import AnswerRecorder from '../../components/interview/AnswerRecorder';
 import Interviewer from '../../components/interview/Interviewer';
 import { useVoiceAnswer, speechSupported } from '../../hooks/useVoiceAnswer';
-import { speak, stopSpeaking, voiceAvailable, warmVoices, prefetchSpeech, setServiceVoice } from '../../lib/speak';
+import { speak, stopSpeaking, voiceAvailable, warmVoices, prefetchSpeech, setServiceVoice, registerClips } from '../../lib/speak';
 import {
   loadInterview, submitAnswer, finishInterview,
   type InterviewSession, type SessionState,
@@ -201,7 +201,7 @@ export default function CandidateInterview() {
   // only — holding once should not turn the rest of the interview manual.
   const [held, setHeld] = useState(false);
 
-  const voice = useVoiceAnswer();
+  const voice = useVoiceAnswer(token);
   const speechOk = useMemo(() => speechSupported(), []);
   const canRead = useMemo(() => voiceAvailable(), []);
   const stopRead = useRef<() => void>(() => {});
@@ -244,6 +244,9 @@ export default function CandidateInterview() {
   useEffect(() => {
     if (!session || state !== 'ready') return;
     setServiceVoice(session.voice && !session.rehearsal);
+    // Before the tap, so the first question can be played straight out of
+    // it — a phone will not play audio that no await stands between.
+    void registerClips(session.questions.map(q => q.text));
     if (session.voice && !session.rehearsal && !muted) {
       prefetchSpeech(token, session.questions[0]?.id);
     }
@@ -279,7 +282,8 @@ export default function CandidateInterview() {
       // question that is read quickly can finish first. The microphone then
       // never opened and the candidate sat looking at a question nothing
       // was listening to.
-      if (statusRef.current === 'starting' || statusRef.current === 'recording') return;
+      if (statusRef.current === 'starting' || statusRef.current === 'recording'
+        || statusRef.current === 'transcribing') return;
       void voice.start();
     };
 

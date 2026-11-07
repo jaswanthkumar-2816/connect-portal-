@@ -134,34 +134,50 @@ export function stopSpeaking(): void {
 }
 
 /**
- * The recorded clip for a question, if there is one.
+ * Clips recorded ahead of time, by question text.
  *
- * Some questions are spoken ahead of time on a machine that can afford to
- * run the model, and shipped with the portal under public/voice. The name
- * is a hash of the question text — see interview-api/scripts/record-
- * questions.mjs, which must hash it exactly the same way.
+ * Worked out when the session loads rather than when a question is asked,
+ * and that timing is the whole point. Hashing is asynchronous, and a play()
+ * that happens after an await has left the tap that caused it — which is
+ * exactly what a phone refuses. The first question would go silent on the
+ * one device the interview is actually taken on.
  *
- * This exists because the interview service runs on an instance too small
- * to make speech without stalling itself. When that stops being true the
- * recordings simply stop being found, and nothing here needs changing.
+ * So the names are ready before the candidate taps, and speak() stays
+ * synchronous all the way to play().
+ *
+ * See interview-api/scripts/record-questions.mjs, which must hash the same
+ * way. This exists because the interview service runs somewhere too small
+ * to make speech without stalling itself; when that stops being true the
+ * clips stop being found and nothing here needs changing.
  */
-async function recordedUrl(text: string): Promise<string | null> {
+const clips = new Map<string, string>();
+
+async function keyFor(text: string): Promise<string | null> {
   const subtle = window.crypto?.subtle;
   if (!subtle) return null;
   try {
-    const bytes = new TextEncoder().encode(text.trim());
-    const digest = await subtle.digest('SHA-1', bytes);
-    const key = Array.from(new Uint8Array(digest))
+    const digest = await subtle.digest('SHA-1', new TextEncoder().encode(text.trim()));
+    return Array.from(new Uint8Array(digest))
       .map(b => b.toString(16).padStart(2, '0'))
       .join('')
       .slice(0, 20);
-    return `/voice/${key}.wav`;
   } catch {
-    // Non-secure origin, most likely. The service and the browser are both
-    // still there.
+    // Not a secure origin. The service and the browser are both still there.
     return null;
   }
 }
+
+/** Called once the questions are known, before anything is spoken. */
+export async function registerClips(texts: string[]): Promise<void> {
+  await Promise.all(texts.map(async text => {
+    const trimmed = text.trim();
+    if (!trimmed || clips.has(trimmed)) return;
+    const key = await keyFor(trimmed);
+    if (key) clips.set(trimmed, `/voice/${key}.wav`);
+  }));
+}
+
+const recordedUrl = (text: string): string | null => clips.get(text.trim()) || null;
 
 /**
  * Say one question. Returns a function that stops it part-way, for when the
@@ -246,11 +262,9 @@ export function speak(
 
   // A recording is a local file, so it either starts quickly or is not
   // there; the service is over the network and gets longer.
-  recordedUrl(text).then(url => {
-    if (settled) return;
-    if (url) playFrom(url, fromService, 1200);
-    else fromService();
-  });
+  const clip = recordedUrl(text);
+  if (clip) playFrom(clip, fromService, 1200);
+  else fromService();
 
   return () => { finish(); stopSpeaking(); };
 }

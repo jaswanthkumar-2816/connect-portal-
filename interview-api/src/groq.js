@@ -86,3 +86,46 @@ export async function askGroq({ system, user, temperature = 0.4, maxTokens = 160
     return once({ system, user, temperature, maxTokens });
   }
 }
+
+// ============================================================
+// Hearing the candidate
+// ============================================================
+// Whisper, on Groq. This replaced the browser's own SpeechRecognition,
+// which is a Chrome feature pretending to be a web standard: Samsung
+// Internet and Firefox do not have it, Safari's is its own thing, and on
+// Android it competes with the page for the microphone and loses. It fails
+// by transcribing nothing rather than by raising an error, so an interview
+// would run to the end and file empty answers.
+//
+// The candidate's phone now records and uploads. One way for every browser,
+// and a failure is a failed request we can say something about.
+
+const TRANSCRIBE_MODEL = process.env.WHISPER_MODEL || 'whisper-large-v3-turbo';
+
+/** Audio in, words out. Throws GroqUnavailable so callers can say so. */
+export async function transcribe(audio, filename = 'answer.webm') {
+  if (!config.groqKey) throw new GroqUnavailable('No Groq key, so answers cannot be transcribed.');
+  if (!audio?.length) throw new GroqUnavailable('There was no audio to transcribe.');
+
+  const form = new FormData();
+  form.append('file', new Blob([audio]), filename);
+  form.append('model', TRANSCRIBE_MODEL);
+  form.append('response_format', 'json');
+  // Names and salon words it would otherwise guess at. Not a transcript of
+  // the question — that would bias it towards repeating the question back.
+  form.append('language', 'en');
+
+  const res = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${config.groqKey}` },
+    body: form,
+    signal: AbortSignal.timeout(90000),
+  });
+
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    throw new GroqUnavailable(`transcription ${res.status}: ${detail.slice(0, 200)}`);
+  }
+  const data = await res.json();
+  return String(data?.text || '').trim();
+}

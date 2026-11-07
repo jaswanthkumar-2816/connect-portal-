@@ -5,7 +5,7 @@ import { store, ready as storeReady } from './store.js';
 import { issueToken, readToken, newId } from './tokens.js';
 import { writeQuestions } from './questions.js';
 import { assessInterview } from './report.js';
-import { groqConfigured } from './groq.js';
+import { groqConfigured , transcribe } from './groq.js';
 import { speakText, warmVoice, voiceEnabled, voiceReady, voiceDescription } from './voice.js';
 import { verifyRecruiter } from './auth.js';
 
@@ -29,7 +29,7 @@ app.use(
   cors({
     origin: config.allowedOrigins.includes('*') ? true : config.allowedOrigins,
     methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'x-api-key', 'Authorization', 'ngrok-skip-browser-warning'],
+    allowedHeaders: ['Content-Type', 'x-api-key', 'x-interview-token', 'Authorization', 'ngrok-skip-browser-warning'],
   })
 );
 
@@ -266,6 +266,64 @@ app.get('/api/interview/speak/:token/:questionId', throttle, async (req, res) =>
     res.status(503).json({ success: false, error: err.message });
   }
 });
+
+/**
+ * What the candidate just said, in words.
+ *
+ * The audio is forwarded to Whisper and not kept: the company is shown
+ * scores and a summary, and the page tells the candidate so. Holding a
+ * recording of someone's job interview that nobody will ever listen to is
+ * a liability, not a feature.
+ *
+ * Sent as a raw body rather than a form because there is exactly one file
+ * and no fields — the token travels in a header, where it does not end up
+ * in anybody's access log.
+ */
+app.post(
+  '/api/interview/transcribe',
+  throttle,
+  express.raw({ type: ['audio/*', 'video/*', 'application/octet-stream'], limit: '24mb' }),
+  async (req, res) => {
+    const token = req.get('x-interview-token') || '';
+    const read = readToken(token);
+    if (!read.ok) {
+      return res.status(read.reason === 'expired' ? 410 : 404).json({ success: false, state: read.reason });
+    }
+    if (!store.get(read.payload.jti)) {
+      return res.status(404).json({ success: false, state: 'not-found' });
+    }
+    if (!req.body?.length) {
+      return res.status(400).json({ success: false, error: 'No audio arrived.' });
+    }
+
+    // Whisper picks the decoder from the extension, so the browser's own
+    // container type has to survive the trip.
+    const type = String(req.get('content-type') || '').split(';')[0];
+    const ext = ({
+      'audio/webm': 'webm',
+      'audio/ogg': 'ogg',
+      'audio/mp4': 'mp4',
+      'audio/mpeg': 'mp3',
+      'audio/wav': 'wav',
+      'audio/x-wav': 'wav',
+      'audio/aac': 'aac',
+      'audio/flac': 'flac',
+      'video/mp4': 'mp4',
+      'video/webm': 'webm',
+    })[type] || 'webm';
+
+    try {
+      const text = await transcribe(req.body, `answer.${ext}`);
+      res.json({ success: true, text });
+    } catch (err) {
+      console.error('[transcribe]', err.message);
+      res.status(503).json({
+        success: false,
+        error: 'We could not make out the recording. Try again, or type your answer.',
+      });
+    }
+  }
+);
 
 app.post('/api/interview/answer', throttle, (req, res) => {
   const session = withSession(req, res);
