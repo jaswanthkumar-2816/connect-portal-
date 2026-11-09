@@ -56,7 +56,10 @@ export const config = {
   voiceEnabled: process.env.VOICE_ENABLED !== 'false',
   ttsProvider: (process.env.TTS_PROVIDER || (process.env.GROQ_API_KEY ? 'groq' : 'local')).toLowerCase(),
   ttsModel: process.env.TTS_MODEL || 'canopylabs/orpheus-v1-english',
-  ttsVoice: process.env.TTS_VOICE || 'tara',
+  // Groq's Orpheus voices: autumn, diana, hannah, austin, daniel, troy.
+  // It used to answer to 'tara' and now refuses it outright, so a name that
+  // is merely out of date fails every question rather than degrading.
+  ttsVoice: process.env.TTS_VOICE || 'hannah',
   voiceModel: process.env.VOICE_MODEL || 'onnx-community/Kokoro-82M-v1.0-ONNX',
   voiceName: process.env.VOICE_NAME || 'af_heart',
   voiceDtype: process.env.VOICE_DTYPE || 'q8',

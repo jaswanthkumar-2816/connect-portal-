@@ -87,6 +87,13 @@ async function speakViaGroq(text) {
     if (detail.includes('model_terms_required')) {
       throw new Error(`${config.ttsModel} needs its terms accepted at console.groq.com`);
     }
+    // The other one worth naming: Groq renames its voices from time to time,
+    // and a name it no longer knows is refused outright rather than falling
+    // back — so every question goes silent over a single stale word. Its
+    // reply lists the names it does accept, which is the fix.
+    if (detail.includes('voice must be one of')) {
+      throw new Error(`TTS_VOICE "${config.ttsVoice}" is not a voice this model offers — ${detail.slice(detail.indexOf('voice must be one of'), detail.indexOf('voice must be one of') + 120)}`);
+    }
     throw new Error(`groq tts ${res.status}: ${detail.slice(0, 200)}`);
   }
   return Buffer.from(await res.arrayBuffer());
