@@ -119,12 +119,12 @@ function readState(value: unknown): SessionState {
 // rehearsal, and nothing is sent anywhere.
 
 const REHEARSAL_QUESTIONS: InterviewQuestion[] = [
-  { id: 'r1', text: 'To start, tell me a little about yourself and the work you have done so far.', about: 'Communication' },
-  { id: 'r2', text: 'Why this role, and why at this company?', about: 'Relevance' },
-  { id: 'r3', text: 'Walk me through something you worked on that you are proud of. What was your part in it?', about: 'Knows the work' },
-  { id: 'r4', text: 'Tell me about a time a customer or a colleague was unhappy with your work. What did you do?', about: 'Problem solving' },
-  { id: 'r5', text: 'What part of this job do you think you would find hardest?', about: 'Confidence' },
-  { id: 'r6', text: 'Last one — is there anything you would like us to know that we have not asked about?', about: 'Communication' },
+  { id: 'r1', text: 'To start, tell me about yourself.', about: 'Communication' },
+  { id: 'r2', text: 'Why do you want this job?', about: 'Relevance' },
+  { id: 'r3', text: 'Tell me about something you have done that you are proud of.', about: 'Knows the work' },
+  { id: 'r4', text: 'A customer is upset and waiting. What would you say to them?', about: 'Problem solving' },
+  { id: 'r5', text: 'Which part of this job do you think will be hard for you?', about: 'Confidence' },
+  { id: 'r6', text: 'Last one — is there anything else you want us to know?', about: 'Communication' },
 ];
 
 function rehearsalAllowed(): boolean {
